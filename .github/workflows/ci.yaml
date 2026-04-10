@@ -7,6 +7,9 @@ jobs:
   build:
     name: Build and Test
     runs-on: ubuntu-latest
+    env: 
+      TURBO_SECRET: ${{ secrets.TURBO_SECRET }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
