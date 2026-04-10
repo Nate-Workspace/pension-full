@@ -7,7 +7,9 @@ export class AppService {
     return 'Hello World!';
   }
 
-  postHello (createRequest: TestType) : string {
-    return "Hello " + createRequest.name + ", your price is " + createRequest.price;
+  postHello(createRequest: TestType): string {
+    return (
+      'Hello ' + createRequest.name + ', your price is ' + createRequest.price
+    );
   }
 }
