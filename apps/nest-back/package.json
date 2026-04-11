@@ -29,6 +29,7 @@
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@repo/types": "workspace:*",
+    "@repo/contracts": "workspace:*",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",

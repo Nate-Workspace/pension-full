@@ -1,7 +1,7 @@
 {
-    "name": "@repo/types",
+    "name": "@repo/contracts",
     "version": "0.0.0",
-    "private": true,
+    "private":true,
     "scripts": {
         "build":"tsc",
         "dev": "tsc -w",
@@ -11,6 +11,9 @@
     "exports":{
         ".": "./src/index.ts",
         "./*": "./src/*.ts"
+    },
+    "dependencies": {
+        "zod": "^4.1.12"
     },
     "devDependencies": {
         "@repo/eslint-config": "workspace:*",
