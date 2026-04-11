@@ -51,6 +51,9 @@ importers:
       '@nestjs/testing':
         specifier: ^11.0.1
         version: 11.1.18(@nestjs/common@11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.18(@nestjs/common@11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.18)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.18(@nestjs/common@11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.18))
+      '@repo/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@repo/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -124,6 +127,9 @@ importers:
         specifier: ^19.2.0
         version: 19.2.0(react@19.2.0)
     devDependencies:
+      '@repo/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
@@ -142,6 +148,27 @@ importers:
       '@types/react-dom':
         specifier: 19.2.2
         version: 19.2.2(@types/react@19.2.2)
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.1
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
+
+  packages/contracts:
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/eslint':
+        specifier: 9.6.1
+        version: 9.6.1
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.15.3
       eslint:
         specifier: ^9.39.1
         version: 9.39.1
@@ -207,6 +234,37 @@ importers:
         version: 5.9.2
 
   packages/typescript-config: {}
+
+  packages/ui:
+    dependencies:
+      react:
+        specifier: ^19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.0(react@19.2.0)
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.15.3
+      '@types/react':
+        specifier: 19.2.2
+        version: 19.2.2
+      '@types/react-dom':
+        specifier: 19.2.2
+        version: 19.2.2(@types/react@19.2.2)
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.1
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
 
 packages:
 
