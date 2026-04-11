@@ -1,4 +1,4 @@
-export { db, databaseConfig, getDatabaseConfig } from "./db";
+export { db, getDatabaseConfig, getDb, getResolvedDatabaseConfig } from "./db";
 export type { DatabaseConfig, DbProvider } from "./db";
 
 export { schema, users } from "./schema";

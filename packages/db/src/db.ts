@@ -11,6 +11,10 @@ export interface DatabaseConfig {
   connectionString: string;
 }
 
+type DbClient =
+  | ReturnType<typeof drizzleNeon<typeof schema>>
+  | ReturnType<typeof drizzlePostgres<typeof schema>>;
+
 export function getDatabaseConfig(): DatabaseConfig {
   const configuredProvider = process.env.DB_PROVIDER;
   const hasNeonUrl = Boolean(process.env.NEON_DATABASE_URL);
@@ -38,9 +42,33 @@ export function getDatabaseConfig(): DatabaseConfig {
   };
 }
 
-export const databaseConfig = getDatabaseConfig();
+let cachedConfig: DatabaseConfig | undefined;
+let cachedDb: DbClient | undefined;
 
-export const db =
-  databaseConfig.provider === "neon"
-    ? drizzleNeon(neon(databaseConfig.connectionString), { schema })
-    : drizzlePostgres(postgres(databaseConfig.connectionString), { schema });
+export function getDb(): DbClient {
+  if (cachedDb) {
+    return cachedDb;
+  }
+
+  cachedConfig = getDatabaseConfig();
+  cachedDb =
+    cachedConfig.provider === "neon"
+      ? drizzleNeon(neon(cachedConfig.connectionString), { schema })
+      : drizzlePostgres(postgres(cachedConfig.connectionString), { schema });
+
+  return cachedDb;
+}
+
+export function getResolvedDatabaseConfig(): DatabaseConfig {
+  if (!cachedConfig) {
+    cachedConfig = getDatabaseConfig();
+  }
+
+  return cachedConfig;
+}
+
+export const db = new Proxy({} as DbClient, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getDb() as object, prop, receiver);
+  },
+}) as DbClient;
