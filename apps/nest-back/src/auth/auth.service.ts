@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  InternalServerErrorException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -8,16 +9,20 @@ import { compare, hash } from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { db, users as usersTable } from '@repo/db';
 import { loginSchema, registerSchema } from '@repo/contracts';
-import type { AuthResponse, User as PublicUser } from '@repo/types';
-import { InternalServerErrorException } from '@nestjs/common';
+import type { User as PublicUser } from '@repo/types';
 
 type DbUser = typeof usersTable.$inferSelect;
+type RegisteredUser = Pick<PublicUser, 'id' | 'email' | 'role'>;
+type LoginResponse = {
+  accessToken: string;
+  user: RegisteredUser;
+};
 
 @Injectable()
 export class AuthService {
   constructor(private readonly jwtService: JwtService) {}
 
-  async register(body: unknown): Promise<AuthResponse> {
+  async register(body: unknown): Promise<RegisteredUser> {
     const input = registerSchema.parse(body);
     const existingUser = await this.findUserByEmail(input.email);
 
@@ -42,9 +47,7 @@ export class AuthService {
       throw new InternalServerErrorException('Failed to create user');
     }
 
-    const user = this.toPublicUser(createdRecord);
-
-    return this.createAuthResponse(user);
+    return this.toRegisteredUser(createdRecord);
   }
 
   async validateUserCredentials(body: unknown): Promise<PublicUser> {
@@ -64,7 +67,7 @@ export class AuthService {
     return this.toPublicUser(user);
   }
 
-  async login(body: unknown): Promise<AuthResponse> {
+  async login(body: unknown): Promise<LoginResponse> {
     const user = await this.validateUserCredentials(body);
     return this.createAuthResponse(user);
   }
@@ -79,16 +82,27 @@ export class AuthService {
     return user;
   }
 
-  private createAuthResponse(user: PublicUser): AuthResponse {
+  private createAuthResponse(user: PublicUser): LoginResponse {
     const accessToken = this.jwtService.sign({
-      sub: user.id,
-      email: user.email,
+      userId: user.id,
       role: user.role,
     });
 
     return {
       accessToken,
-      user,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
+
+  private toRegisteredUser(user: DbUser): RegisteredUser {
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
     };
   }
 
