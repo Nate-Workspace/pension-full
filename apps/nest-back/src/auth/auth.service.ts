@@ -2,6 +2,7 @@ import {
   ConflictException,
   InternalServerErrorException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -72,11 +73,31 @@ export class AuthService {
     return this.createAuthResponse(user);
   }
 
+  async getCurrentUser(userId: string): Promise<RegisteredUser> {
+    const user = await this.findUserById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return this.toRegisteredUser(user);
+  }
+
   private async findUserByEmail(email: string): Promise<DbUser | undefined> {
     const [user] = await db
       .select()
       .from(usersTable)
       .where(eq(usersTable.email, email))
+      .limit(1);
+
+    return user;
+  }
+
+  private async findUserById(id: string): Promise<DbUser | undefined> {
+    const [user] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, id))
       .limit(1);
 
     return user;
