@@ -22,8 +22,16 @@ export class JwtAuthGuard implements CanActivate {
   constructor(private readonly jwtService: JwtService) {}
 
   canActivate(context: ExecutionContext): boolean {
+    console.log(
+      'Context: ',
+      context.getClass().name,
+      context.getHandler().name,
+    ); // Debugging line
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    console.log('Request headers: ', request.headers); // Debugging line
     const token = this.extractBearerToken(request);
+
+    console.log('Extracted token: ', token); // Debugging line
 
     if (!token) {
       throw new UnauthorizedException('Missing bearer token');
@@ -52,7 +60,8 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   private extractBearerToken(request: Request): string | undefined {
-    const authorization = request.headers.authorization;
+    const authorization = request.headers.authorization; //This is the  'Bearer <token>' string here boi
+    console.log('Authorization header: ', authorization); // Debugging line
 
     if (!authorization) {
       return undefined;

@@ -10,6 +10,7 @@ import { compare, hash } from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { db, users as usersTable } from '@repo/db';
 import { loginSchema, registerSchema } from '@repo/contracts';
+import type { LoginInput, RegisterInput } from '@repo/contracts';
 import type { User as PublicUser } from '@repo/types';
 
 type DbUser = typeof usersTable.$inferSelect;
@@ -23,7 +24,7 @@ type LoginResponse = {
 export class AuthService {
   constructor(private readonly jwtService: JwtService) {}
 
-  async register(body: unknown): Promise<RegisteredUser> {
+  async register(body: RegisterInput): Promise<RegisteredUser> {
     const input = registerSchema.parse(body);
     const existingUser = await this.findUserByEmail(input.email);
 
@@ -51,7 +52,7 @@ export class AuthService {
     return this.toRegisteredUser(createdRecord);
   }
 
-  async validateUserCredentials(body: unknown): Promise<PublicUser> {
+  async validateUserCredentials(body: LoginInput): Promise<PublicUser> {
     const input = loginSchema.parse(body);
     const user = await this.findUserByEmail(input.email);
 
@@ -68,7 +69,7 @@ export class AuthService {
     return this.toPublicUser(user);
   }
 
-  async login(body: unknown): Promise<LoginResponse> {
+  async login(body: LoginInput): Promise<LoginResponse> {
     const user = await this.validateUserCredentials(body);
     return this.createAuthResponse(user);
   }
