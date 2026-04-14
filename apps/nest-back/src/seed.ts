@@ -1,6 +1,10 @@
+import { config as loadEnv } from 'dotenv';
 import { hash } from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { db, users } from '@repo/db';
+
+loadEnv({ path: '../../.env' });
+loadEnv({ path: './.env', override: true });
 
 const seedUsers = [
   {

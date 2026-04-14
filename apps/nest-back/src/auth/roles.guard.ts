@@ -8,17 +8,15 @@ import { Reflector } from '@nestjs/core';
 import type { Role } from '@repo/types';
 import type { Request } from 'express';
 import { ROLES_KEY } from './roles.decorator';
+import { JwtRequestUser } from './jwt-auth.guard';
 
 type AuthenticatedRequest = Request & {
-  user?: {
-    userId: string;
-    role: Role;
-  };
+  user?: JwtRequestUser;
 };
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(private readonly reflector: Reflector) {} // Reflector is used to read the metadata set by the @Roles() decorator
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
