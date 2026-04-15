@@ -1,0 +1,53 @@
+import type { Payment } from "./models";
+
+export const payments: Payment[] = [
+  {
+    id: "pay-001",
+    bookingId: "book-001",
+    roomId: "room-101",
+    amount: 8000,
+    method: "mobile_money",
+    status: "paid",
+    paidAt: "2026-03-24T11:03:00Z",
+    reference: "MOMO-991823",
+  },
+  {
+    id: "pay-002",
+    bookingId: "book-002",
+    roomId: "room-201",
+    amount: 9000,
+    method: "cash",
+    status: "partial",
+    paidAt: "2026-03-25T15:12:00Z",
+    reference: "CASH-RECP-2201",
+  },
+  {
+    id: "pay-003",
+    bookingId: "book-003",
+    roomId: "room-202",
+    amount: 20000,
+    method: "mobile_money",
+    status: "paid",
+    paidAt: "2026-03-26T10:45:00Z",
+    reference: "MOMO-994020",
+  },
+  {
+    id: "pay-004",
+    bookingId: "book-004",
+    roomId: "room-302",
+    amount: 0,
+    method: "cash",
+    status: "unpaid",
+    reference: "PENDING-BG-2026-0325",
+  },
+  {
+    id: "pay-005",
+    bookingId: "book-006",
+    roomId: "room-102",
+    amount: 5000,
+    method: "mobile_money",
+    status: "partial",
+    paidAt: "2026-03-26T13:02:00Z",
+    reference: "MOMO-995118",
+  },
+];

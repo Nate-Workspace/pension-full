@@ -3,7 +3,10 @@ import { hash } from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { db, bookings, rooms, users } from '@repo/db';
 
-const loadEnvConfig = loadEnv as (options: { path: string; override?: boolean }) => void;
+const loadEnvConfig = loadEnv as (options: {
+  path: string;
+  override?: boolean;
+}) => void;
 
 loadEnvConfig({ path: '../../.env' });
 loadEnvConfig({ path: './.env', override: true });

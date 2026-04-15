@@ -68,19 +68,29 @@ export class RoomsService {
     const resolvedOperationDay = operationDay ?? this.getCurrentOperationDay();
 
     const roomRows = (await db.select().from(roomsTable)) as RoomRecord[];
-    const bookingRows = (await db.select().from(bookingsTable)) as BookingRecord[];
+    const bookingRows = (await db
+      .select()
+      .from(bookingsTable)) as BookingRecord[];
 
-    const activeBookingByRoomId = this.buildActiveBookingMap(bookingRows, resolvedOperationDay);
+    const activeBookingByRoomId = this.buildActiveBookingMap(
+      bookingRows,
+      resolvedOperationDay,
+    );
 
     const responses = roomRows
-      .map((room) => this.toRoomResponse(room, activeBookingByRoomId.get(room.id) ?? null, resolvedOperationDay))
+      .map((room) =>
+        this.toRoomResponse(room, activeBookingByRoomId.get(room.id) ?? null),
+      )
       .sort((left, right) => {
         const floorDiff = left.floor - right.floor;
         if (floorDiff !== 0) {
           return floorDiff;
         }
 
-        return left.number.localeCompare(right.number, undefined, { numeric: true, sensitivity: 'base' });
+        return left.number.localeCompare(right.number, undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        });
       });
 
     if (!status || status === 'all') {
@@ -104,10 +114,10 @@ export class RoomsService {
       manualStatus: this.toStoredManualStatus(input.status),
       pricePerNight: input.pricePerNight,
       capacity: input.capacity,
-      assignedTo: this.normalizeAssignedTo(input.assignedTo as string | null | undefined),
+      assignedTo: this.normalizeAssignedTo(input.assignedTo),
     });
 
-    return this.toRoomResponse(roomRecord, null, this.getCurrentOperationDay());
+    return this.toRoomResponse(roomRecord, null);
   }
 
   async updateRoom(id: string, body: unknown): Promise<RoomResponseRow> {
@@ -136,7 +146,7 @@ export class RoomsService {
         assignedTo:
           input.assignedTo === undefined
             ? existingRoom.assignedTo
-            : this.normalizeAssignedTo(input.assignedTo as string | null | undefined),
+            : this.normalizeAssignedTo(input.assignedTo),
       })
       .where(eq(roomsTable.id, id))
       .returning();
@@ -147,9 +157,12 @@ export class RoomsService {
       throw new NotFoundException('Room not found');
     }
 
-    const activeBooking = await this.findActiveBookingForRoom(updatedRoom.id, this.getCurrentOperationDay());
+    const activeBooking = await this.findActiveBookingForRoom(
+      updatedRoom.id,
+      this.getCurrentOperationDay(),
+    );
 
-    return this.toRoomResponse(updatedRoom, activeBooking, this.getCurrentOperationDay());
+    return this.toRoomResponse(updatedRoom, activeBooking);
   }
 
   async updateRoomStatus(id: string, body: unknown): Promise<RoomResponseRow> {
@@ -161,7 +174,9 @@ export class RoomsService {
     }
 
     const nextManualStatus =
-      input.status === "occupied" ? existingRoom.manualStatus : this.toStoredManualStatus(input.status);
+      input.status === 'occupied'
+        ? existingRoom.manualStatus
+        : this.toStoredManualStatus(input.status);
 
     const updatedRows = await db
       .update(roomsTable)
@@ -177,21 +192,36 @@ export class RoomsService {
       throw new NotFoundException('Room not found');
     }
 
-    const activeBooking = await this.findActiveBookingForRoom(updatedRoom.id, this.getCurrentOperationDay());
+    const activeBooking = await this.findActiveBookingForRoom(
+      updatedRoom.id,
+      this.getCurrentOperationDay(),
+    );
 
-    return this.toRoomResponse(updatedRoom, activeBooking, this.getCurrentOperationDay());
+    return this.toRoomResponse(updatedRoom, activeBooking);
   }
 
   private parseCreateInput(body: unknown): CreateRoomInput {
     const record = this.toRecord(body);
 
     return {
-      number: this.requireTrimmedString(record.number, 'Room number is required.'),
-      floor: this.requirePositiveInteger(record.floor, 'Floor must be a valid positive number.'),
+      number: this.requireTrimmedString(
+        record.number,
+        'Room number is required.',
+      ),
+      floor: this.requirePositiveInteger(
+        record.floor,
+        'Floor must be a valid positive number.',
+      ),
       type: this.requireRoomType(record.type),
       status: this.requireRoomStatus(record.status),
-      capacity: this.requirePositiveInteger(record.capacity, 'Capacity must be a valid positive number.'),
-      pricePerNight: this.requirePositiveInteger(record.pricePerNight, 'Price per night must be a valid positive amount.'),
+      capacity: this.requirePositiveInteger(
+        record.capacity,
+        'Capacity must be a valid positive number.',
+      ),
+      pricePerNight: this.requirePositiveInteger(
+        record.pricePerNight,
+        'Price per night must be a valid positive amount.',
+      ),
       assignedTo: this.normalizeAssignedTo(record.assignedTo),
     };
   }
@@ -200,11 +230,23 @@ export class RoomsService {
     const record = this.toRecord(body);
 
     return {
-      number: this.requireTrimmedString(record.number, 'Room number is required.'),
-      floor: this.requirePositiveInteger(record.floor, 'Floor must be a valid positive number.'),
+      number: this.requireTrimmedString(
+        record.number,
+        'Room number is required.',
+      ),
+      floor: this.requirePositiveInteger(
+        record.floor,
+        'Floor must be a valid positive number.',
+      ),
       type: this.requireRoomType(record.type),
-      capacity: this.requirePositiveInteger(record.capacity, 'Capacity must be a valid positive number.'),
-      pricePerNight: this.requirePositiveInteger(record.pricePerNight, 'Price per night must be a valid positive amount.'),
+      capacity: this.requirePositiveInteger(
+        record.capacity,
+        'Capacity must be a valid positive number.',
+      ),
+      pricePerNight: this.requirePositiveInteger(
+        record.pricePerNight,
+        'Price per night must be a valid positive amount.',
+      ),
       assignedTo: this.normalizeAssignedTo(record.assignedTo),
     };
   }
@@ -218,12 +260,19 @@ export class RoomsService {
   }
 
   private async findRoomById(id: string): Promise<RoomRecord | undefined> {
-    const rooms = (await db.select().from(roomsTable).where(eq(roomsTable.id, id)).limit(1)) as RoomRecord[];
+    const rooms = (await db
+      .select()
+      .from(roomsTable)
+      .where(eq(roomsTable.id, id))
+      .limit(1)) as RoomRecord[];
     const room = rooms[0];
     return room;
   }
 
-  private async ensureRoomNumberIsUnique(number: string, roomIdToIgnore?: string): Promise<void> {
+  private async ensureRoomNumberIsUnique(
+    number: string,
+    roomIdToIgnore?: string,
+  ): Promise<void> {
     const existingRooms = (await db
       .select({ id: roomsTable.id })
       .from(roomsTable)
@@ -236,9 +285,14 @@ export class RoomsService {
     }
   }
 
-  private async insertRoom(values: typeof roomsTable.$inferInsert): Promise<RoomRecord> {
+  private async insertRoom(
+    values: typeof roomsTable.$inferInsert,
+  ): Promise<RoomRecord> {
     try {
-      const insertedRooms = (await db.insert(roomsTable).values(values).returning()) as RoomRecord[];
+      const insertedRooms = await db
+        .insert(roomsTable)
+        .values(values)
+        .returning();
       const room = insertedRooms[0];
 
       if (!room) {
@@ -252,7 +306,10 @@ export class RoomsService {
     }
   }
 
-  private buildActiveBookingMap(bookings: BookingRecord[], operationDay: string): Map<string, BookingRecord> {
+  private buildActiveBookingMap(
+    bookings: BookingRecord[],
+    operationDay: string,
+  ): Map<string, BookingRecord> {
     const activeBookingByRoomId = new Map<string, BookingRecord>();
 
     for (const booking of bookings) {
@@ -266,22 +323,35 @@ export class RoomsService {
     return activeBookingByRoomId;
   }
 
-  private async findActiveBookingForRoom(roomId: string, operationDay: string): Promise<BookingRecord | null> {
-    const roomBookings = (await db.select().from(bookingsTable).where(eq(bookingsTable.roomId, roomId))) as BookingRecord[];
+  private async findActiveBookingForRoom(
+    roomId: string,
+    operationDay: string,
+  ): Promise<BookingRecord | null> {
+    const roomBookings = (await db
+      .select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.roomId, roomId))) as BookingRecord[];
 
-    return roomBookings.find((booking) => this.isActiveBookingOn(operationDay, booking)) ?? null;
+    return (
+      roomBookings.find((booking) =>
+        this.isActiveBookingOn(operationDay, booking),
+      ) ?? null
+    );
   }
 
-  private isActiveBookingOn(operationDay: string, booking: BookingRecord): boolean {
+  private isActiveBookingOn(
+    operationDay: string,
+    booking: BookingRecord,
+  ): boolean {
     return (
-      booking.status !== "cancelled" &&
+      booking.status !== 'cancelled' &&
       booking.checkInDate <= operationDay &&
       operationDay < booking.checkOutDate
     );
   }
 
   private resolveEffectiveStatus(
-    manualStatus: RoomRecord["manualStatus"],
+    manualStatus: RoomRecord['manualStatus'],
     activeBooking: BookingRecord | null,
   ): RoomStatus {
     if (manualStatus === 'maintenance') {
@@ -302,9 +372,11 @@ export class RoomsService {
   private toRoomResponse(
     room: RoomRecord,
     activeBooking: BookingRecord | null,
-    _operationDay: string,
   ): RoomResponseRow {
-    const status = this.resolveEffectiveStatus(room.manualStatus, activeBooking);
+    const status = this.resolveEffectiveStatus(
+      room.manualStatus,
+      activeBooking,
+    );
 
     const response: RoomResponseRow = {
       id: room.id,
@@ -318,7 +390,7 @@ export class RoomsService {
       capacity: room.capacity,
       assignedTo: room.assignedTo ?? undefined,
       currentGuest:
-        status === "occupied" && activeBooking
+        status === 'occupied' && activeBooking
           ? {
               name: activeBooking.guestName,
               phone: activeBooking.guestPhone ?? undefined,
@@ -343,8 +415,14 @@ export class RoomsService {
     return trimmed.length > 0 ? trimmed : null;
   }
 
-  private toStoredManualStatus(status: RoomStatus | 'occupied'): RoomManualStatus {
-    if (status === 'cleaning' || status === 'maintenance' || status === 'available') {
+  private toStoredManualStatus(
+    status: RoomStatus | 'occupied',
+  ): RoomManualStatus {
+    if (
+      status === 'cleaning' ||
+      status === 'maintenance' ||
+      status === 'available'
+    ) {
       return status;
     }
 
@@ -369,7 +447,9 @@ export class RoomsService {
     };
   }
 
-  private normalizeListStatus(status: string | undefined): RoomListQuery['status'] | undefined {
+  private normalizeListStatus(
+    status: string | undefined,
+  ): RoomListQuery['status'] | undefined {
     if (status === undefined) {
       return undefined;
     }
@@ -387,7 +467,9 @@ export class RoomsService {
     throw new BadRequestException('Invalid status filter.');
   }
 
-  private normalizeOperationDay(operationDay: string | undefined): string | undefined {
+  private normalizeOperationDay(
+    operationDay: string | undefined,
+  ): string | undefined {
     if (operationDay === undefined) {
       return undefined;
     }
@@ -462,11 +544,16 @@ export class RoomsService {
       return error.message;
     }
 
-    return "Invalid request payload.";
+    return 'Invalid request payload.';
   }
 
   private handleUniqueViolation(error: unknown, message: string): void {
-    if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === '23505') {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: string }).code === '23505'
+    ) {
       throw new ConflictException(message);
     }
   }
