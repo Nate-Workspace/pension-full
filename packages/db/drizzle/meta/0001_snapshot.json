@@ -1,0 +1,95 @@
+{
+  "id": "rooms-bookings-snapshot",
+  "prevId": "8520d530-3ddc-4fbc-9127-d245776d8dcc",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "uuid", "primaryKey": true, "notNull": true, "default": "gen_random_uuid()" },
+        "email": { "name": "email", "type": "text", "primaryKey": false, "notNull": true },
+        "password": { "name": "password", "type": "text", "primaryKey": false, "notNull": true },
+        "role": { "name": "role", "type": "text", "primaryKey": false, "notNull": true },
+        "createdAt": { "name": "createdAt", "type": "timestamp with time zone", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": { "name": "users_email_unique", "nullsNotDistinct": false, "columns": ["email"] }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.rooms": {
+      "name": "rooms",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "text", "primaryKey": true, "notNull": true },
+        "name": { "name": "name", "type": "text", "primaryKey": false, "notNull": true },
+        "number": { "name": "number", "type": "text", "primaryKey": false, "notNull": true },
+        "floor": { "name": "floor", "type": "integer", "primaryKey": false, "notNull": true },
+        "type": { "name": "type", "type": "text", "primaryKey": false, "notNull": true },
+        "manualStatus": { "name": "manualStatus", "type": "text", "primaryKey": false, "notNull": true, "default": "'available'" },
+        "pricePerNight": { "name": "pricePerNight", "type": "integer", "primaryKey": false, "notNull": true },
+        "capacity": { "name": "capacity", "type": "integer", "primaryKey": false, "notNull": true },
+        "assignedTo": { "name": "assignedTo", "type": "text", "primaryKey": false, "notNull": false },
+        "createdAt": { "name": "createdAt", "type": "timestamp with time zone", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {
+        "rooms_number_lower_unique": { "name": "rooms_number_lower_unique", "columns": ["number"], "isUnique": true, "nullsNotDistinct": false }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.bookings": {
+      "name": "bookings",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "text", "primaryKey": true, "notNull": true },
+        "code": { "name": "code", "type": "text", "primaryKey": false, "notNull": true },
+        "roomId": { "name": "roomId", "type": "text", "primaryKey": false, "notNull": true },
+        "guestName": { "name": "guestName", "type": "text", "primaryKey": false, "notNull": true },
+        "guestPhone": { "name": "guestPhone", "type": "text", "primaryKey": false, "notNull": false },
+        "guestIdNumber": { "name": "guestIdNumber", "type": "text", "primaryKey": false, "notNull": false },
+        "status": { "name": "status", "type": "text", "primaryKey": false, "notNull": true },
+        "checkInDate": { "name": "checkInDate", "type": "text", "primaryKey": false, "notNull": true },
+        "checkOutDate": { "name": "checkOutDate", "type": "text", "primaryKey": false, "notNull": true },
+        "createdAt": { "name": "createdAt", "type": "timestamp with time zone", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "bookings_roomId_rooms_id_fk": {
+          "name": "bookings_roomId_rooms_id_fk",
+          "tableFrom": "bookings",
+          "tableTo": "rooms",
+          "columnsFrom": ["roomId"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "bookings_code_unique": { "name": "bookings_code_unique", "nullsNotDistinct": false, "columns": ["code"] }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": { "columns": {}, "schemas": {}, "tables": {} }
+}
