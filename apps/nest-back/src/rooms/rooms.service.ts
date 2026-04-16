@@ -173,6 +173,15 @@ export class RoomsService {
       throw new NotFoundException('Room not found');
     }
 
+    const operationDay = this.getCurrentOperationDay();
+    const activeBooking = await this.findActiveBookingForRoom(id, operationDay);
+
+    if (input.status === 'available' && activeBooking) {
+      throw new ConflictException(
+        'Room cannot be set to available while an active booking exists.',
+      );
+    }
+
     const nextManualStatus =
       input.status === 'occupied'
         ? existingRoom.manualStatus
@@ -192,12 +201,12 @@ export class RoomsService {
       throw new NotFoundException('Room not found');
     }
 
-    const activeBooking = await this.findActiveBookingForRoom(
+    const latestActiveBooking = await this.findActiveBookingForRoom(
       updatedRoom.id,
-      this.getCurrentOperationDay(),
+      operationDay,
     );
 
-    return this.toRoomResponse(updatedRoom, activeBooking);
+    return this.toRoomResponse(updatedRoom, latestActiveBooking);
   }
 
   private parseCreateInput(body: unknown): CreateRoomInput {

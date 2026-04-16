@@ -209,20 +209,7 @@ export function BookingsManagement() {
   });
 
   const fetchBookings = useCallback(async () => {
-    const params = new URLSearchParams();
-
-    if (statusFilter !== "all") {
-      params.set("status", statusFilter);
-    }
-
-    const trimmedSearch = search.trim();
-
-    if (trimmedSearch.length > 0) {
-      params.set("search", trimmedSearch);
-    }
-
-    const query = params.toString();
-    const endpoint = `${API_BASE_URL}/bookings${query.length > 0 ? `?${query}` : ""}`;
+    const endpoint = `${API_BASE_URL}/bookings`;
 
     const response = await fetch(endpoint, {
       method: "GET",
@@ -238,7 +225,7 @@ export function BookingsManagement() {
 
     const payload = (await response.json()) as Booking[];
     setBookings(payload);
-  }, [search, statusFilter]);
+  }, []);
 
   const fetchRooms = useCallback(async () => {
     const params = new URLSearchParams();
@@ -299,7 +286,30 @@ export function BookingsManagement() {
 
   const roomById = useMemo(() => byId<Room>(rooms), [rooms]);
 
-  const visibleBookings = useMemo(() => bookings, [bookings]);
+  const visibleBookings = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return bookings.filter((booking) => {
+      if (statusFilter !== "all" && booking.status !== statusFilter) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      const room = roomById.get(booking.roomId);
+
+      const guestName = booking.guest.name.toLowerCase();
+      const roomLabel = room ? `room ${room.number}`.toLowerCase() : "";
+
+      return (
+        booking.code.toLowerCase().includes(query) ||
+        guestName.includes(query) ||
+        roomLabel.includes(query)
+      );
+    });
+  }, [bookings, roomById, search, statusFilter]);
 
   const metrics = useMemo(() => {
     const confirmed = bookings.filter((booking) => booking.status === "confirmed").length;
