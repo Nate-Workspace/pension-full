@@ -1,16 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useEffect } from "react";
 
-import { rooms as initialRooms } from "@/data";
 import type { Room, RoomType } from "@/data";
 import { useOperationsData } from "@/components/providers/operations-provider";
 import { DataTable, FormSurface, MetricCard, StatusBadge } from "@/components/ui";
-import { isBookingActiveOn } from "@/lib/operations";
 import { ROOM_STATUS_LABELS, type RoomStatus } from "@/lib/types/status";
 
 type StatusFilter = "all" | RoomStatus;
+
+type RoomWithGuest = Room & {
+  currentGuest?: {
+    name: string;
+    phone?: string;
+    idNumber?: string;
+  };
+};
 
 type RoomFormState = {
   id?: string;
@@ -25,6 +31,8 @@ type RoomFormState = {
 
 const ROOM_TYPES: RoomType[] = ["single", "double", "vip"];
 const ROOM_STATUSES: RoomStatus[] = ["available", "occupied", "cleaning", "maintenance"];
+
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000").replace(/\/$/, "");
 
 function roomTypeLabel(type: RoomType): string {
   if (type === "vip") {
@@ -67,6 +75,13 @@ function sanitizeRoomForStatus(room: Room): Room {
   return room;
 }
 
+function mapApiRoomToUiRoom(room: RoomWithGuest): RoomWithGuest {
+  return {
+    ...room,
+    price: room.pricePerNight,
+  };
+}
+
 function validateRoomForm(formState: RoomFormState, existingRooms: Room[]): string | null {
   if (formState.number.trim().length < 2) {
     return "Room number must be at least 2 characters.";
@@ -100,32 +115,70 @@ function validateRoomForm(formState: RoomFormState, existingRooms: Room[]): stri
 }
 
 export function RoomsManagement() {
-  const { bookings, operationDay } = useOperationsData();
+  const { operationDay } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
-  const [rooms, setRooms] = useState<Room[]>(initialRooms);
+  const [rooms, setRooms] = useState<RoomWithGuest[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [formState, setFormState] = useState<RoomFormState>(createDefaultFormState());
   const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setIsLoading(false);
-    }, 450);
+  const fetchRooms = useCallback(async () => {
+    const params = new URLSearchParams();
 
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, []);
-
-  const filteredRooms = useMemo(() => {
-    if (statusFilter === "all") {
-      return rooms;
+    if (statusFilter !== "all") {
+      params.set("status", statusFilter);
     }
 
-    return rooms.filter((room) => room.status === statusFilter);
-  }, [rooms, statusFilter]);
+    if (operationDay) {
+      params.set("operationDay", operationDay);
+    }
+
+    const query = params.toString();
+    const endpoint = `${API_BASE_URL}/rooms${query.length > 0 ? `?${query}` : ""}`;
+
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to load rooms (${response.status}).`);
+    }
+
+    const payload = (await response.json()) as RoomWithGuest[];
+    setRooms(payload.map(mapApiRoomToUiRoom));
+  }, [operationDay, statusFilter]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const load = async () => {
+      setIsLoading(true);
+
+      try {
+        await fetchRooms();
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchRooms]);
+
+  const filteredRooms = useMemo(() => rooms, [rooms]);
 
   const metrics = useMemo(() => {
     const occupiedCount = rooms.filter((room) => room.status === "occupied").length;
@@ -139,16 +192,6 @@ export function RoomsManagement() {
       cleaning: cleaningCount,
     };
   }, [rooms]);
-
-  const activeBookingByRoomId = useMemo(() => {
-    return bookings.reduce<Map<string, (typeof bookings)[number]>>((map, booking) => {
-      if (isBookingActiveOn(operationDay, booking)) {
-        map.set(booking.roomId, booking);
-      }
-
-      return map;
-    }, new Map<string, (typeof bookings)[number]>());
-  }, [bookings, operationDay]);
 
   const openAddDrawer = () => {
     setFormError(null);
@@ -168,20 +211,46 @@ export function RoomsManagement() {
   };
 
   const handleStatusChange = (roomId: string, status: RoomStatus) => {
+    const previousRooms = rooms;
+
     setRooms((currentRooms) =>
       currentRooms.map((room) => {
         if (room.id !== roomId) {
           return room;
         }
 
-        const nextRoom: Room = {
+        return {
           ...room,
           status,
         };
-
-        return sanitizeRoomForStatus(nextRoom);
       }),
     );
+
+    void (async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ status }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to update room status (${response.status}).`);
+        }
+
+        const updatedRoom = mapApiRoomToUiRoom((await response.json()) as RoomWithGuest);
+
+        setRooms((currentRooms) =>
+          currentRooms.map((room) => (room.id === roomId ? updatedRoom : room)),
+        );
+      } catch (error) {
+        console.error(error);
+        setRooms(previousRooms);
+      }
+    })();
   };
 
   const handleSaveRoom = () => {
@@ -196,31 +265,87 @@ export function RoomsManagement() {
     const capacity = Number(formState.capacity);
     const pricePerNight = Number(formState.pricePerNight);
 
-    const roomPayload: Room = sanitizeRoomForStatus({
-      id:
-        formState.id ??
-        `room-${formState.number.trim().toLowerCase()}-${Math.random().toString(36).slice(2, 7)}`,
-      name: `Room ${formState.number.trim()}`,
-      number: formState.number.trim(),
-      floor,
-      type: formState.type,
-      status: formState.status,
-      assignedTo: formState.assignedTo.trim() || undefined,
-      capacity,
-      price: pricePerNight,
-      pricePerNight,
-    });
+    const assignedTo = formState.assignedTo.trim().length > 0 ? formState.assignedTo.trim() : null;
 
-    setRooms((currentRooms) => {
-      if (!formState.id) {
-        return [...currentRooms, roomPayload];
+    void (async () => {
+      try {
+        if (!formState.id) {
+          const createResponse = await fetch(`${API_BASE_URL}/rooms`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              number: formState.number.trim(),
+              floor,
+              type: formState.type,
+              status: formState.status,
+              capacity,
+              pricePerNight,
+              assignedTo,
+            }),
+          });
+
+          if (!createResponse.ok) {
+            throw new Error(`Failed to create room (${createResponse.status}).`);
+          }
+
+          const createdRoom = mapApiRoomToUiRoom((await createResponse.json()) as RoomWithGuest);
+          setRooms((currentRooms) => [...currentRooms, createdRoom]);
+        } else {
+          const existingRoom = rooms.find((room) => room.id === formState.id);
+          const patchResponse = await fetch(`${API_BASE_URL}/rooms/${formState.id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              number: formState.number.trim(),
+              floor,
+              type: formState.type,
+              capacity,
+              pricePerNight,
+              assignedTo,
+            }),
+          });
+
+          if (!patchResponse.ok) {
+            throw new Error(`Failed to update room (${patchResponse.status}).`);
+          }
+
+          let updatedRoom = mapApiRoomToUiRoom((await patchResponse.json()) as RoomWithGuest);
+
+          if (existingRoom && existingRoom.status !== formState.status) {
+            const statusResponse = await fetch(`${API_BASE_URL}/rooms/${formState.id}/status`, {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              body: JSON.stringify({ status: formState.status }),
+            });
+
+            if (!statusResponse.ok) {
+              throw new Error(`Failed to update room status (${statusResponse.status}).`);
+            }
+
+            updatedRoom = mapApiRoomToUiRoom((await statusResponse.json()) as RoomWithGuest);
+          }
+
+          setRooms((currentRooms) =>
+            currentRooms.map((room) => (room.id === formState.id ? updatedRoom : room)),
+          );
+        }
+
+        setIsDrawerOpen(false);
+        setFormError(null);
+      } catch (error) {
+        console.error(error);
+        setFormError(error instanceof Error ? error.message : "Unable to save room.");
       }
-
-      return currentRooms.map((room) => (room.id === formState.id ? roomPayload : room));
-    });
-
-    setIsDrawerOpen(false);
-    setFormError(null);
+    })();
   };
 
   const columns = [
@@ -259,10 +384,10 @@ export function RoomsManagement() {
     {
       key: "occupancy",
       header: "Occupancy",
-      render: (room: Room) => {
-        const activeBooking = activeBookingByRoomId.get(room.id);
+      render: (room: RoomWithGuest) => {
+        const activeGuest = room.currentGuest;
 
-        if (!activeBooking) {
+        if (!activeGuest) {
           if (room.status === "cleaning" && room.assignedTo) {
             return `Cleaning by ${room.assignedTo}`;
           }
@@ -276,8 +401,8 @@ export function RoomsManagement() {
 
         return (
           <div>
-            <p className="font-medium text-slate-900">{activeBooking.guest.name}</p>
-            {activeBooking.guest.phone ? <p className="text-xs text-slate-500">{activeBooking.guest.phone}</p> : null}
+            <p className="font-medium text-slate-900">{activeGuest.name}</p>
+            {activeGuest.phone ? <p className="text-xs text-slate-500">{activeGuest.phone}</p> : null}
           </div>
         );
       },
@@ -285,7 +410,7 @@ export function RoomsManagement() {
     {
       key: "quick-actions",
       header: "Quick Actions",
-      render: (room: Room) => (
+      render: (room: RoomWithGuest) => (
         <div className="flex flex-wrap items-center gap-2">
           <select
             aria-label={`Change status for room ${room.number}`}
