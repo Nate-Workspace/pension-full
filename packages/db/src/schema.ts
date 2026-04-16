@@ -13,6 +13,8 @@ export const roomManualStatusEnum = ["available", "cleaning", "maintenance"] as 
 export const roomStatusEnum = ["available", "occupied", "cleaning", "maintenance"] as const;
 export const bookingSourceEnum = ["walk-in", "phone", "website", "agent"] as const;
 export const bookingStatusEnum = ["confirmed", "pending", "cancelled"] as const;
+export const paymentMethodEnum = ["cash", "mobile_money"] as const;
+export const paymentStatusEnum = ["paid", "partial", "unpaid"] as const;
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -71,10 +73,32 @@ export const bookings = pgTable(
   }),
 );
 
+export const payments = pgTable(
+  "payments",
+  {
+    id: text("id").primaryKey(),
+    bookingId: text("bookingId")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    roomId: text("roomId")
+      .notNull()
+      .references(() => rooms.id, { onDelete: "cascade" }),
+    amount: integer("amount").notNull().default(0),
+    method: text("method", { enum: paymentMethodEnum }).notNull(),
+    status: text("status", { enum: paymentStatusEnum }).notNull(),
+    paidAt: timestamp("paidAt", { mode: "date", withTimezone: true }),
+    reference: text("reference").notNull().unique(),
+    createdAt: timestamp("createdAt", { mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+);
+
 export const schema = {
   users,
   rooms,
   bookings,
+  payments,
 } as const;
 
 export type User = typeof users.$inferSelect;
@@ -83,3 +107,5 @@ export type Room = typeof rooms.$inferSelect;
 export type NewRoom = typeof rooms.$inferInsert;
 export type Booking = typeof bookings.$inferSelect;
 export type NewBooking = typeof bookings.$inferInsert;
+export type Payment = typeof payments.$inferSelect;
+export type NewPayment = typeof payments.$inferInsert;

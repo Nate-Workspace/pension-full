@@ -1,7 +1,7 @@
 import { config as loadEnv } from 'dotenv';
 import { hash } from 'bcryptjs';
 import { eq } from 'drizzle-orm';
-import { db, bookings, rooms, users } from '@repo/db';
+import { db, bookings, payments, rooms, users } from '@repo/db';
 
 const loadEnvConfig = loadEnv as (options: {
   path: string;
@@ -227,6 +227,59 @@ const seedBookings = [
   },
 ] as const;
 
+const seedPayments = [
+  {
+    id: 'pay-001',
+    bookingId: 'book-001',
+    roomId: 'room-101',
+    amount: 8000,
+    method: 'mobile_money' as const,
+    status: 'paid' as const,
+    paidAt: new Date('2026-03-24T11:03:00Z'),
+    reference: 'MOMO-991823',
+  },
+  {
+    id: 'pay-002',
+    bookingId: 'book-002',
+    roomId: 'room-201',
+    amount: 9000,
+    method: 'cash' as const,
+    status: 'partial' as const,
+    paidAt: new Date('2026-03-25T15:12:00Z'),
+    reference: 'CASH-RECP-2201',
+  },
+  {
+    id: 'pay-003',
+    bookingId: 'book-003',
+    roomId: 'room-202',
+    amount: 20000,
+    method: 'mobile_money' as const,
+    status: 'paid' as const,
+    paidAt: new Date('2026-03-26T10:45:00Z'),
+    reference: 'MOMO-994020',
+  },
+  {
+    id: 'pay-004',
+    bookingId: 'book-004',
+    roomId: 'room-302',
+    amount: 0,
+    method: 'cash' as const,
+    status: 'unpaid' as const,
+    paidAt: null,
+    reference: 'PENDING-BG-2026-0325',
+  },
+  {
+    id: 'pay-005',
+    bookingId: 'book-006',
+    roomId: 'room-102',
+    amount: 5000,
+    method: 'mobile_money' as const,
+    status: 'partial' as const,
+    paidAt: new Date('2026-03-26T13:02:00Z'),
+    reference: 'MOMO-995118',
+  },
+] as const;
+
 async function seedRoom(room: (typeof seedRooms)[number]) {
   const existingRooms = (await db
     .select({ id: rooms.id })
@@ -274,6 +327,34 @@ async function seedBooking(booking: (typeof seedBookings)[number]) {
   await db.insert(bookings).values(booking);
 }
 
+async function seedPayment(payment: (typeof seedPayments)[number]) {
+  const existingPayments = (await db
+    .select({ id: payments.id })
+    .from(payments)
+    .where(eq(payments.id, payment.id))
+    .limit(1)) as Array<{ id: string }>;
+  const existingPayment = existingPayments[0];
+
+  if (existingPayment) {
+    await db
+      .update(payments)
+      .set({
+        bookingId: payment.bookingId,
+        roomId: payment.roomId,
+        amount: payment.amount,
+        method: payment.method,
+        status: payment.status,
+        paidAt: payment.paidAt,
+        reference: payment.reference,
+      })
+      .where(eq(payments.id, payment.id));
+
+    return;
+  }
+
+  await db.insert(payments).values(payment);
+}
+
 async function main() {
   for (const user of seedUsers) {
     await seedUser(user.email, user.password, user.role);
@@ -285,6 +366,10 @@ async function main() {
 
   for (const booking of seedBookings) {
     await seedBooking(booking);
+  }
+
+  for (const payment of seedPayments) {
+    await seedPayment(payment);
   }
 }
 
