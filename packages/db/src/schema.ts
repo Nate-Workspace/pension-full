@@ -11,6 +11,7 @@ import {
 export const roomTypeEnum = ["single", "double", "vip"] as const;
 export const roomManualStatusEnum = ["available", "cleaning", "maintenance"] as const;
 export const roomStatusEnum = ["available", "occupied", "cleaning", "maintenance"] as const;
+export const bookingSourceEnum = ["walk-in", "phone", "website", "agent"] as const;
 export const bookingStatusEnum = ["confirmed", "pending", "cancelled"] as const;
 
 export const users = pgTable("users", {
@@ -55,9 +56,12 @@ export const bookings = pgTable(
     guestName: text("guestName").notNull(),
     guestPhone: text("guestPhone"),
     guestIdNumber: text("guestIdNumber"),
+    handledBy: text("handledBy"),
     status: text("status", { enum: bookingStatusEnum }).notNull(),
     checkInDate: text("checkInDate").notNull(),
     checkOutDate: text("checkOutDate").notNull(),
+    paidAmount: integer("paidAmount").notNull().default(0),
+    source: text("source", { enum: bookingSourceEnum }).notNull().default("walk-in"),
     createdAt: timestamp("createdAt", { mode: "date", withTimezone: true })
       .defaultNow()
       .notNull(),

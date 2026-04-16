@@ -1,5 +1,15 @@
 export { authSchemas, loginSchema, registerSchema } from "./auth";
 export {
+	bookingGuestSchema,
+	bookingPaymentStatusSchema,
+	bookingResponseSchema,
+	bookingSourceSchema,
+	bookingStatusSchema,
+	createBookingSchema,
+	listBookingsQuerySchema,
+	updateBookingSchema,
+} from "./bookings";
+export {
 	createRoomSchema,
 	listRoomsQuerySchema,
 	roomCurrentGuestSchema,
@@ -14,6 +24,16 @@ export {
 } from "./rooms";
 
 export type { LoginInput, RegisterInput } from "./auth";
+export type {
+	BookingGuest,
+	BookingPaymentStatus,
+	BookingResponse,
+	BookingSource,
+	BookingStatusValue,
+	CreateBookingInput,
+	ListBookingsQueryInput,
+	UpdateBookingInput,
+} from "./bookings";
 export type {
 	CreateRoomInput,
 	ListRoomsQueryInput,

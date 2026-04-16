@@ -15,6 +15,13 @@
       "when": 1776201099802,
       "tag": "0001_rooms_booking_support",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776201099803,
+      "tag": "0002_bookings_module",
+      "breakpoints": true
     }
   ]
 }

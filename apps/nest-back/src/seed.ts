@@ -148,9 +148,12 @@ const seedBookings = [
     guestName: 'Musa Diallo',
     guestPhone: '+221 77 231 8844',
     guestIdNumber: 'SN-ID-2478391',
+    handledBy: 'Front Desk A',
     status: 'confirmed' as const,
     checkInDate: '2026-03-24',
     checkOutDate: '2026-03-28',
+    paidAmount: 8000,
+    source: 'phone' as const,
   },
   {
     id: 'book-002',
@@ -159,9 +162,12 @@ const seedBookings = [
     guestName: 'Koffi Mensah',
     guestPhone: '+233 24 553 9021',
     guestIdNumber: 'GH-PP-9908172',
+    handledBy: 'Night Reception',
     status: 'confirmed' as const,
     checkInDate: '2026-03-25',
     checkOutDate: '2026-03-29',
+    paidAmount: 9000,
+    source: 'website' as const,
   },
   {
     id: 'book-003',
@@ -170,9 +176,54 @@ const seedBookings = [
     guestName: 'Fatou Sow',
     guestPhone: '+221 70 445 1192',
     guestIdNumber: 'SN-ID-3017755',
+    handledBy: 'Front Desk B',
     status: 'confirmed' as const,
     checkInDate: '2026-03-26',
     checkOutDate: '2026-03-30',
+    paidAmount: 20000,
+    source: 'agent' as const,
+  },
+  {
+    id: 'book-004',
+    code: 'BG-2026-0325',
+    roomId: 'room-302',
+    guestName: 'Leila Boukari',
+    guestPhone: '+227 93 561 700',
+    guestIdNumber: 'NE-ID-104992',
+    handledBy: null,
+    status: 'pending' as const,
+    checkInDate: '2026-03-28',
+    checkOutDate: '2026-03-31',
+    paidAmount: 0,
+    source: 'walk-in' as const,
+  },
+  {
+    id: 'book-005',
+    code: 'BG-2026-0317',
+    roomId: 'room-301',
+    guestName: 'David Kouassi',
+    guestPhone: '+225 07 12 34 55 21',
+    guestIdNumber: 'CI-PP-8052264',
+    handledBy: null,
+    status: 'cancelled' as const,
+    checkInDate: '2026-03-23',
+    checkOutDate: '2026-03-26',
+    paidAmount: 0,
+    source: 'website' as const,
+  },
+  {
+    id: 'book-006',
+    code: 'BG-2026-0326',
+    roomId: 'room-102',
+    guestName: 'Aminata Ndiaye',
+    guestPhone: '+221 76 908 3341',
+    guestIdNumber: 'SN-ID-2390448',
+    handledBy: null,
+    status: 'confirmed' as const,
+    checkInDate: '2026-03-29',
+    checkOutDate: '2026-04-02',
+    paidAmount: 5000,
+    source: 'phone' as const,
   },
 ] as const;
 
@@ -200,6 +251,23 @@ async function seedBooking(booking: (typeof seedBookings)[number]) {
   const existingBooking = existingBookings[0];
 
   if (existingBooking) {
+    await db
+      .update(bookings)
+      .set({
+        code: booking.code,
+        roomId: booking.roomId,
+        guestName: booking.guestName,
+        guestPhone: booking.guestPhone,
+        guestIdNumber: booking.guestIdNumber,
+        handledBy: booking.handledBy ?? null,
+        status: booking.status,
+        checkInDate: booking.checkInDate,
+        checkOutDate: booking.checkOutDate,
+        paidAmount: booking.paidAmount,
+        source: booking.source,
+      })
+      .where(eq(bookings.id, booking.id));
+
     return;
   }
 
