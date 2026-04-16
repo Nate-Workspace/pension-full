@@ -1,16 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useEffect } from "react";
 
 import type { Booking, BookingStatus, Room } from "@/data";
 import { useOperationsData } from "@/components/providers/operations-provider";
 import { DataTable, FormSurface, MetricCard } from "@/components/ui";
 import {
-  derivePaymentStatus,
   diffNights,
   isBookingActiveOn,
-  overlapsRange,
   parseIsoDate,
   toIsoDate,
 } from "@/lib/operations";
@@ -44,6 +42,12 @@ type CalendarReservation = {
   roomNumber: string;
   status: BookingStatus;
 };
+
+type ApiErrorPayload = {
+  message?: string | string[];
+};
+
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000").replace(/\/$/, "");
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
@@ -83,7 +87,9 @@ function bookingStatusStyle(status: BookingStatus): string {
   return "border-rose-200 bg-rose-50 text-rose-700";
 }
 
-function createFormDefaults(roomList: Room[]): BookingFormState {
+function createFormDefaults(roomList: Room[], operationDay?: string): BookingFormState {
+  const checkInDate = operationDay ?? toIsoDate(new Date());
+
   return {
     guestName: "",
     guestPhone: "",
@@ -91,8 +97,8 @@ function createFormDefaults(roomList: Room[]): BookingFormState {
     handledBy: "",
     roomId: roomList[0]?.id ?? "",
     status: "confirmed",
-    checkInDate: "2026-03-27",
-    checkOutDate: "2026-03-29",
+    checkInDate,
+    checkOutDate: addIsoDays(checkInDate, 2),
     paidAmount: "0",
     source: "walk-in",
   };
@@ -114,8 +120,31 @@ function createFormFromBooking(booking: Booking): BookingFormState {
   };
 }
 
-function createBookingCode(index: number): string {
-  return `BG-2026-AUTO-${String(index).padStart(3, "0")}`;
+function addIsoDays(isoDate: string, days: number): string {
+  const value = parseIsoDate(isoDate);
+  value.setUTCDate(value.getUTCDate() + days);
+  return toIsoDate(value);
+}
+
+function mapApiRoomToUiRoom(room: Room): Room {
+  return {
+    ...room,
+    price: room.pricePerNight,
+  };
+}
+
+async function getErrorMessage(response: Response, fallback: string): Promise<string> {
+  const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null;
+
+  if (!payload?.message) {
+    return fallback;
+  }
+
+  if (Array.isArray(payload.message)) {
+    return payload.message[0] ?? fallback;
+  }
+
+  return payload.message;
 }
 
 function getMonthLabel(currentMonth: Date): string {
@@ -161,62 +190,124 @@ function byId<T extends { id: string }>(items: T[]): Map<string, T> {
 }
 
 export function BookingsManagement() {
-  const { bookings, rooms, operationDay, setBookings, setCleaningRoomIds } = useOperationsData();
+  const { operationDay } = useOperationsData();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<BookingFilter>("all");
 
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [formState, setFormState] = useState<BookingFormState>(() => createFormDefaults(rooms));
+  const [formState, setFormState] = useState<BookingFormState>(() => createFormDefaults([], operationDay));
   const [formError, setFormError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  const [viewMonth, setViewMonth] = useState<Date>(() => new Date(Date.UTC(2026, 2, 1)));
+  const [viewMonth, setViewMonth] = useState<Date>(() => {
+    const day = parseIsoDate(operationDay);
+    return startOfMonthUTC(day.getUTCFullYear(), day.getUTCMonth());
+  });
+
+  const fetchBookings = useCallback(async () => {
+    const params = new URLSearchParams();
+
+    if (statusFilter !== "all") {
+      params.set("status", statusFilter);
+    }
+
+    const trimmedSearch = search.trim();
+
+    if (trimmedSearch.length > 0) {
+      params.set("search", trimmedSearch);
+    }
+
+    const query = params.toString();
+    const endpoint = `${API_BASE_URL}/bookings${query.length > 0 ? `?${query}` : ""}`;
+
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(await getErrorMessage(response, `Failed to load bookings (${response.status}).`));
+    }
+
+    const payload = (await response.json()) as Booking[];
+    setBookings(payload);
+  }, [search, statusFilter]);
+
+  const fetchRooms = useCallback(async () => {
+    const params = new URLSearchParams();
+
+    if (operationDay) {
+      params.set("operationDay", operationDay);
+    }
+
+    const query = params.toString();
+    const endpoint = `${API_BASE_URL}/rooms${query.length > 0 ? `?${query}` : ""}`;
+
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(await getErrorMessage(response, `Failed to load rooms (${response.status}).`));
+    }
+
+    const payload = (await response.json()) as Room[];
+    setRooms(payload.map(mapApiRoomToUiRoom));
+  }, [operationDay]);
+
+  const refreshData = useCallback(async () => {
+    await Promise.all([fetchBookings(), fetchRooms()]);
+  }, [fetchBookings, fetchRooms]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setIsLoading(false);
-    }, 450);
+    let isMounted = true;
+
+    const load = async () => {
+      setIsLoading(true);
+
+      try {
+        await refreshData();
+      } catch (error) {
+        if (isMounted) {
+          console.error(error);
+          setActionMessage(error instanceof Error ? error.message : "Unable to load bookings.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void load();
 
     return () => {
-      window.clearTimeout(timer);
+      isMounted = false;
     };
-  }, []);
+  }, [refreshData]);
 
   const roomById = useMemo(() => byId<Room>(rooms), [rooms]);
 
-  const visibleBookings = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return bookings.filter((booking) => {
-      if (statusFilter !== "all" && booking.status !== statusFilter) {
-        return false;
-      }
-
-      if (!query) {
-        return true;
-      }
-
-      const room = roomById.get(booking.roomId);
-
-      const guestName = booking.guest.name.toLowerCase();
-      const roomLabel = room ? `room ${room.number}`.toLowerCase() : "";
-
-      return (
-        booking.code.toLowerCase().includes(query) ||
-        guestName.includes(query) ||
-        roomLabel.includes(query)
-      );
-    });
-  }, [bookings, roomById, search, statusFilter]);
+  const visibleBookings = useMemo(() => bookings, [bookings]);
 
   const metrics = useMemo(() => {
     const confirmed = bookings.filter((booking) => booking.status === "confirmed").length;
     const pending = bookings.filter((booking) => booking.status === "pending").length;
     const cancelled = bookings.filter((booking) => booking.status === "cancelled").length;
+    const monthPrefix = operationDay.slice(0, 7);
     const monthRevenue = bookings
-      .filter((booking) => booking.status === "confirmed" && booking.checkInDate.startsWith("2026-03"))
+      .filter((booking) => booking.status === "confirmed" && booking.checkInDate.startsWith(monthPrefix))
       .reduce((sum, booking) => sum + booking.totalAmount, 0);
 
     return {
@@ -226,7 +317,7 @@ export function BookingsManagement() {
       cancelled,
       monthRevenue,
     };
-  }, [bookings]);
+  }, [bookings, operationDay]);
 
   const calendarDays = useMemo(() => generateCalendarDays(viewMonth), [viewMonth]);
 
@@ -263,7 +354,7 @@ export function BookingsManagement() {
   const openCreate = () => {
     setFormError(null);
     setActionMessage(null);
-    setFormState(createFormDefaults(rooms));
+    setFormState(createFormDefaults(rooms, operationDay));
     setIsFormOpen(true);
   };
 
@@ -302,31 +393,26 @@ export function BookingsManagement() {
       }
     }
 
-    const today = operationDay;
-    const updatedNights = Math.max(1, diffNights(booking.checkInDate, today));
+    void (async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}/checkout`, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+          },
+        });
 
-    setBookings((current) =>
-      current.map((item) => {
-        if (item.id !== bookingId) {
-          return item;
+        if (!response.ok) {
+          throw new Error(await getErrorMessage(response, `Failed to check out booking (${response.status}).`));
         }
 
-        return {
-          ...item,
-          checkOut: today,
-          checkOutDate: today,
-          nights: updatedNights,
-        };
-      }),
-    );
-
-    setCleaningRoomIds((current) => {
-      const next = new Set(current);
-      next.add(booking.roomId);
-      return next;
-    });
-
-    setActionMessage(`Booking ${booking.code} checked out. Room moved to cleaning.`);
+        await refreshData();
+        setActionMessage(`Booking ${booking.code} checked out. Room moved to cleaning.`);
+      } catch (error) {
+        console.error(error);
+        setActionMessage(error instanceof Error ? error.message : "Unable to check out booking.");
+      }
+    })();
   };
 
   const setRoomAvailable = (roomId: string) => {
@@ -335,13 +421,28 @@ export function BookingsManagement() {
       return;
     }
 
-    setCleaningRoomIds((current) => {
-      const next = new Set(current);
-      next.delete(roomId);
-      return next;
-    });
+    void (async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ status: "available" }),
+        });
 
-    setActionMessage("Room marked as available.");
+        if (!response.ok) {
+          throw new Error(await getErrorMessage(response, `Failed to set room available (${response.status}).`));
+        }
+
+        await fetchRooms();
+        setActionMessage("Room marked as available.");
+      } catch (error) {
+        console.error(error);
+        setActionMessage(error instanceof Error ? error.message : "Unable to set room as available.");
+      }
+    })();
   };
 
   const saveBooking = () => {
@@ -371,94 +472,71 @@ export function BookingsManagement() {
       return;
     }
 
-    const overlapBooking = bookings.find(
-      (booking) =>
-        booking.id !== formState.id &&
-        booking.roomId === formState.roomId &&
-        booking.status !== "cancelled" &&
-        formState.status !== "cancelled" &&
-        overlapsRange(
-          formState.checkInDate,
-          formState.checkOutDate,
-          booking.checkInDate,
-          booking.checkOutDate,
-        ),
-    );
-
-    if (overlapBooking) {
-      setFormError(`Room already booked in this period (${overlapBooking.code}).`);
-      return;
-    }
-
-    const nextAmount = room.pricePerNight * nights;
-    const boundedPaidAmount = Math.min(parsedPaidAmount, nextAmount);
-    const remainingAmount = Math.max(nextAmount - boundedPaidAmount, 0);
-    const paymentStatus = derivePaymentStatus(nextAmount, boundedPaidAmount);
-
-    const nextBooking: Booking = {
-      id: formState.id ?? `book-local-${bookings.length + 1}`,
-      code: formState.id
-        ? bookings.find((item) => item.id === formState.id)?.code ?? createBookingCode(bookings.length + 1)
-        : createBookingCode(bookings.length + 1),
-      guest: {
-        name: formState.guestName.trim(),
-        phone: formState.guestPhone.trim() || undefined,
-        idNumber: formState.guestIdNumber.trim() || undefined,
-      },
+    const payload = {
+      guestName: formState.guestName.trim(),
+      guestPhone: formState.guestPhone.trim() || undefined,
+      guestIdNumber: formState.guestIdNumber.trim() || undefined,
       handledBy: formState.handledBy.trim() || undefined,
       roomId: formState.roomId,
       status: formState.status,
-      checkIn: formState.checkInDate,
-      checkOut: formState.checkOutDate,
       checkInDate: formState.checkInDate,
       checkOutDate: formState.checkOutDate,
-      nights,
-      totalAmount: nextAmount,
-      paidAmount: boundedPaidAmount,
-      remainingAmount,
-      paymentStatus,
-      dueDate: remainingAmount > 0 ? formState.checkOutDate : undefined,
-      createdAt:
-        formState.id
-          ? bookings.find((item) => item.id === formState.id)?.createdAt ?? `${formState.checkInDate}T09:00:00Z`
-          : `${formState.checkInDate}T09:00:00Z`,
+      paidAmount: parsedPaidAmount,
       source: formState.source,
     };
 
-    setBookings((current) => {
-      if (!formState.id) {
-        return [nextBooking, ...current];
+    void (async () => {
+      try {
+        const endpoint = formState.id ? `${API_BASE_URL}/bookings/${formState.id}` : `${API_BASE_URL}/bookings`;
+        const method = formState.id ? "PATCH" : "POST";
+
+        const response = await fetch(endpoint, {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error(await getErrorMessage(response, `Failed to save booking (${response.status}).`));
+        }
+
+        await refreshData();
+        setIsFormOpen(false);
+        setFormError(null);
+        setActionMessage("Booking saved successfully.");
+      } catch (error) {
+        console.error(error);
+        setFormError(error instanceof Error ? error.message : "Unable to save booking.");
       }
-
-      return current.map((item) => (item.id === formState.id ? nextBooking : item));
-    });
-
-    if (formState.status !== "cancelled") {
-      setCleaningRoomIds((current) => {
-        const next = new Set(current);
-        next.delete(formState.roomId);
-        return next;
-      });
-    }
-
-    setIsFormOpen(false);
-    setFormError(null);
-    setActionMessage("Booking saved successfully.");
+    })();
   };
 
   const cancelBooking = (bookingId: string) => {
-    setBookings((current) =>
-      current.map((booking) => {
-        if (booking.id !== bookingId) {
-          return booking;
+    const booking = bookings.find((item) => item.id === bookingId);
+
+    void (async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}/cancel`, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(await getErrorMessage(response, `Failed to cancel booking (${response.status}).`));
         }
 
-        return {
-          ...booking,
-          status: "cancelled",
-        };
-      }),
-    );
+        await refreshData();
+        setActionMessage(booking ? `Booking ${booking.code} cancelled.` : "Booking cancelled.");
+      } catch (error) {
+        console.error(error);
+        setActionMessage(error instanceof Error ? error.message : "Unable to cancel booking.");
+      }
+    })();
   };
 
   return (
