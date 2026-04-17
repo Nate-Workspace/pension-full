@@ -1,7 +1,7 @@
 import { config as loadEnv } from 'dotenv';
 import { hash } from 'bcryptjs';
 import { eq } from 'drizzle-orm';
-import { db, bookings, payments, rooms, users } from '@repo/db';
+import { db, bookings, payments, rooms, settings, users } from '@repo/db';
 
 const loadEnvConfig = loadEnv as (options: {
   path: string;
@@ -280,6 +280,25 @@ const seedPayments = [
   },
 ] as const;
 
+const seedSettings = {
+  id: 'main',
+  pensionName: 'Hillside Guest House',
+  ownerName: 'Guest House Owner',
+  contactPhone: '+221 77 000 9988',
+  contactEmail: 'admin@hillsideguesthouse.org',
+  address: 'Bole Brass',
+  city: 'Addis Ababa',
+  singleRoomPrice: 2200,
+  doubleRoomPrice: 4400,
+  vipRoomPrice: 5250,
+  defaultCheckInTime: '14:00',
+  defaultCheckOutTime: '11:00',
+  allowWalkInBookings: 1,
+  autoMarkRoomCleaningAfterCheckout: 1,
+  requireIdBeforeCheckIn: 1,
+  sendPaymentReminders: 1,
+} as const;
+
 async function seedRoom(room: (typeof seedRooms)[number]) {
   const existingRooms = (await db
     .select({ id: rooms.id })
@@ -355,6 +374,43 @@ async function seedPayment(payment: (typeof seedPayments)[number]) {
   await db.insert(payments).values(payment);
 }
 
+async function seedAppSettings() {
+  const existingSettings = (await db
+    .select({ id: settings.id })
+    .from(settings)
+    .where(eq(settings.id, seedSettings.id))
+    .limit(1)) as Array<{ id: string }>;
+  const existingSetting = existingSettings[0];
+
+  if (existingSetting) {
+    await db
+      .update(settings)
+      .set({
+        pensionName: seedSettings.pensionName,
+        ownerName: seedSettings.ownerName,
+        contactPhone: seedSettings.contactPhone,
+        contactEmail: seedSettings.contactEmail,
+        address: seedSettings.address,
+        city: seedSettings.city,
+        singleRoomPrice: seedSettings.singleRoomPrice,
+        doubleRoomPrice: seedSettings.doubleRoomPrice,
+        vipRoomPrice: seedSettings.vipRoomPrice,
+        defaultCheckInTime: seedSettings.defaultCheckInTime,
+        defaultCheckOutTime: seedSettings.defaultCheckOutTime,
+        allowWalkInBookings: seedSettings.allowWalkInBookings,
+        autoMarkRoomCleaningAfterCheckout: seedSettings.autoMarkRoomCleaningAfterCheckout,
+        requireIdBeforeCheckIn: seedSettings.requireIdBeforeCheckIn,
+        sendPaymentReminders: seedSettings.sendPaymentReminders,
+        updatedAt: new Date(),
+      })
+      .where(eq(settings.id, seedSettings.id));
+
+    return;
+  }
+
+  await db.insert(settings).values(seedSettings);
+}
+
 async function main() {
   for (const user of seedUsers) {
     await seedUser(user.email, user.password, user.role);
@@ -371,6 +427,8 @@ async function main() {
   for (const payment of seedPayments) {
     await seedPayment(payment);
   }
+
+  await seedAppSettings();
 }
 
 main()

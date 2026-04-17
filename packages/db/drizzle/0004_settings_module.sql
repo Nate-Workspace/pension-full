@@ -1,0 +1,20 @@
+CREATE TABLE "settings" (
+	"id" text PRIMARY KEY NOT NULL,
+	"pensionName" text NOT NULL,
+	"ownerName" text NOT NULL,
+	"contactPhone" text NOT NULL,
+	"contactEmail" text NOT NULL,
+	"address" text NOT NULL,
+	"city" text NOT NULL,
+	"singleRoomPrice" integer NOT NULL,
+	"doubleRoomPrice" integer NOT NULL,
+	"vipRoomPrice" integer NOT NULL,
+	"defaultCheckInTime" text NOT NULL,
+	"defaultCheckOutTime" text NOT NULL,
+	"allowWalkInBookings" integer DEFAULT 1 NOT NULL,
+	"autoMarkRoomCleaningAfterCheckout" integer DEFAULT 1 NOT NULL,
+	"requireIdBeforeCheckIn" integer DEFAULT 1 NOT NULL,
+	"sendPaymentReminders" integer DEFAULT 1 NOT NULL,
+	"createdAt" timestamp with time zone DEFAULT now() NOT NULL,
+	"updatedAt" timestamp with time zone DEFAULT now() NOT NULL
+);

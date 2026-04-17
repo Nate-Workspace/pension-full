@@ -5,9 +5,10 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ReportsModule } from './reports/reports.module';
 import { RoomsModule } from './rooms/rooms.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
-  imports: [AuthModule, BookingsModule, DashboardModule, RoomsModule, PaymentsModule, ReportsModule],
+  imports: [AuthModule, BookingsModule, DashboardModule, RoomsModule, PaymentsModule, ReportsModule, SettingsModule],
   controllers: [],
   providers: [],
 })

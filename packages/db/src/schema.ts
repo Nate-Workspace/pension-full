@@ -94,11 +94,37 @@ export const payments = pgTable(
   },
 );
 
+export const settings = pgTable("settings", {
+  id: text("id").primaryKey(),
+  pensionName: text("pensionName").notNull(),
+  ownerName: text("ownerName").notNull(),
+  contactPhone: text("contactPhone").notNull(),
+  contactEmail: text("contactEmail").notNull(),
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  singleRoomPrice: integer("singleRoomPrice").notNull(),
+  doubleRoomPrice: integer("doubleRoomPrice").notNull(),
+  vipRoomPrice: integer("vipRoomPrice").notNull(),
+  defaultCheckInTime: text("defaultCheckInTime").notNull(),
+  defaultCheckOutTime: text("defaultCheckOutTime").notNull(),
+  allowWalkInBookings: integer("allowWalkInBookings").notNull().default(1),
+  autoMarkRoomCleaningAfterCheckout: integer("autoMarkRoomCleaningAfterCheckout").notNull().default(1),
+  requireIdBeforeCheckIn: integer("requireIdBeforeCheckIn").notNull().default(1),
+  sendPaymentReminders: integer("sendPaymentReminders").notNull().default(1),
+  createdAt: timestamp("createdAt", { mode: "date", withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updatedAt", { mode: "date", withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 export const schema = {
   users,
   rooms,
   bookings,
   payments,
+  settings,
 } as const;
 
 export type User = typeof users.$inferSelect;
@@ -109,3 +135,5 @@ export type Booking = typeof bookings.$inferSelect;
 export type NewBooking = typeof bookings.$inferInsert;
 export type Payment = typeof payments.$inferSelect;
 export type NewPayment = typeof payments.$inferInsert;
+export type Settings = typeof settings.$inferSelect;
+export type NewSettings = typeof settings.$inferInsert;
