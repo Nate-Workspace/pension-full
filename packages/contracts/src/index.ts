@@ -1,5 +1,11 @@
 export { authSchemas, loginSchema, registerSchema } from "./auth";
 export {
+	dashboardOccupancyPointSchema,
+	dashboardRevenuePointSchema,
+	dashboardSummarySchema,
+	dashboardTrendsSchema,
+} from "./dashboard";
+export {
 	bookingGuestSchema,
 	bookingPaymentStatusSchema,
 	bookingResponseSchema,
@@ -24,6 +30,7 @@ export {
 } from "./rooms";
 
 export type { LoginInput, RegisterInput } from "./auth";
+export type { DashboardOccupancyPoint, DashboardRevenuePoint, DashboardSummary, DashboardTrends } from "./dashboard";
 export type {
 	BookingGuest,
 	BookingPaymentStatus,

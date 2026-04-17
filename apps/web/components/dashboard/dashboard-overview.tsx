@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useEffect } from "react";
 import {
   Area,
@@ -14,10 +14,9 @@ import {
   YAxis,
 } from "recharts";
 
-import type { BookingStatus, Room } from "@/data";
-import { useOperationsData } from "@/components/providers/operations-provider";
+import type { Booking, BookingStatus, Room } from "@/data";
 import { ChartWrapper, DataTable, MetricCard, StatusBadge } from "@/components/ui";
-import { getCollectedForDay, getCollectedForMonth, getOutstandingPayments } from "@/lib/operations";
+import { toIsoDate } from "@/lib/operations";
 
 type OccupancyPoint = {
   label: string;
@@ -27,6 +26,24 @@ type OccupancyPoint = {
 type RevenuePoint = {
   label: string;
   revenue: number;
+};
+
+type DashboardSummary = {
+  operationDay: string;
+  totalRooms: number;
+  occupiedRooms: number;
+  availableRooms: number;
+  cleaningRooms: number;
+  todayRevenue: number;
+  monthlyRevenue: number;
+  outstandingPayments: number;
+  occupancyRate: number;
+};
+
+type DashboardTrends = {
+  operationDay: string;
+  occupancySeries: OccupancyPoint[];
+  revenueSeries: RevenuePoint[];
 };
 
 type RecentBookingRow = {
@@ -93,12 +110,6 @@ function monthLabel(value: string): string {
   });
 }
 
-function addDays(baseDate: string, days: number): string {
-  const date = new Date(`${baseDate}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
 function statusStyles(status: BookingStatus): string {
   if (status === "confirmed") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
@@ -121,10 +132,6 @@ function statusLabel(status: BookingStatus): string {
   }
 
   return "Cancelled";
-}
-
-function isDateInsideStay(day: string, checkInDate: string, checkOutDate: string): boolean {
-  return day >= checkInDate && day < checkOutDate;
 }
 
 function alertCategoryStyles(category: AlertRow["category"]): string {
@@ -151,75 +158,105 @@ function alertCategoryLabel(category: AlertRow["category"]): string {
   return "Cleaning";
 }
 
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000").replace(/\/$/, "");
+
+async function getJson<T>(response: Response, fallback: string): Promise<T> {
+  if (!response.ok) {
+    throw new Error(fallback);
+  }
+
+  return (await response.json()) as T;
+}
+
 export function DashboardOverview() {
-  const { bookings, rooms, operationDay } = useOperationsData();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [trends, setTrends] = useState<DashboardTrends | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [operationDay] = useState<string>(() => toIsoDate(new Date()));
+
+  const fetchDashboard = useCallback(async () => {
+    const params = new URLSearchParams({ operationDay });
+
+    const [summaryResponse, trendsResponse, bookingsResponse, roomsResponse] = await Promise.all([
+      fetch(`${API_BASE_URL}/dashboard/summary?${params.toString()}`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      }),
+      fetch(`${API_BASE_URL}/dashboard/trends?${params.toString()}`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      }),
+      fetch(`${API_BASE_URL}/bookings`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      }),
+      fetch(`${API_BASE_URL}/rooms?${params.toString()}`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      }),
+    ]);
+
+    const [summaryPayload, trendsPayload, bookingsPayload, roomsPayload] = await Promise.all([
+      getJson<DashboardSummary>(summaryResponse, "Failed to load dashboard summary."),
+      getJson<DashboardTrends>(trendsResponse, "Failed to load dashboard trends."),
+      getJson<Booking[]>(bookingsResponse, "Failed to load bookings."),
+      getJson<Room[]>(roomsResponse, "Failed to load rooms."),
+    ]);
+
+    setSummary(summaryPayload);
+    setTrends(trendsPayload);
+    setBookings(bookingsPayload);
+    setRooms(roomsPayload);
+  }, [operationDay]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setIsLoading(false);
-    }, 700);
+    let isMounted = true;
+
+    const load = async () => {
+      setIsLoading(true);
+
+      try {
+        await fetchDashboard();
+      } catch (error) {
+        if (isMounted) {
+          console.error(error);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void load();
 
     return () => {
-      window.clearTimeout(timer);
+      isMounted = false;
     };
-  }, []);
+  }, [fetchDashboard]);
 
   const roomById = useMemo(() => new Map(rooms.map((room) => [room.id, room])), [rooms]);
 
-  const metrics = useMemo(() => {
-    const totalRooms = rooms.length;
-    const occupiedRooms = rooms.filter((room) => room.status === "occupied").length;
-    const availableRooms = rooms.filter((room) => room.status === "available").length;
-    const cleaningRooms = rooms.filter((room) => room.status === "cleaning").length;
+  const metrics = summary ?? {
+    operationDay,
+    totalRooms: 0,
+    occupiedRooms: 0,
+    availableRooms: 0,
+    cleaningRooms: 0,
+    todayRevenue: 0,
+    monthlyRevenue: 0,
+    outstandingPayments: 0,
+    occupancyRate: 0,
+  };
 
-    const todayRevenue = getCollectedForDay(bookings, operationDay);
-
-    const monthPrefix = operationDay.slice(0, 7);
-
-    const monthlyRevenue = getCollectedForMonth(bookings, monthPrefix);
-
-    const outstandingPayments = getOutstandingPayments(bookings);
-
-    return {
-      totalRooms,
-      occupiedRooms,
-      availableRooms,
-      cleaningRooms,
-      todayRevenue,
-      monthlyRevenue,
-      outstandingPayments,
-      occupancyRate: Math.round((occupiedRooms / totalRooms) * 100),
-    };
-  }, [bookings, operationDay, rooms]);
-
-  const occupancySeries = useMemo<OccupancyPoint[]>(() => {
-    return Array.from({ length: 7 }, (_, index) => {
-      const day = addDays(operationDay, index - 6);
-      const occupiedCount = bookings.filter(
-        (booking) => booking.status === "confirmed" && isDateInsideStay(day, booking.checkInDate, booking.checkOutDate),
-      ).length;
-
-      return {
-        label: dateLabel(day),
-        occupancyRate: Math.round((occupiedCount / rooms.length) * 100),
-      };
-    });
-  }, [bookings, operationDay, rooms.length]);
-
-  const revenueSeries = useMemo<RevenuePoint[]>(() => {
-    return Array.from({ length: 7 }, (_, index) => {
-      const day = addDays(operationDay, index - 6);
-      const revenue = bookings
-        .filter((booking) => booking.status !== "cancelled" && booking.createdAt.slice(0, 10) === day)
-        .reduce((sum, booking) => sum + booking.paidAmount, 0);
-
-      return {
-        label: dateLabel(day),
-        revenue,
-      };
-    });
-  }, [bookings, operationDay]);
+  const occupancySeries = trends?.occupancySeries ?? [];
+  const revenueSeries = trends?.revenueSeries ?? [];
 
   const recentBookingRows = useMemo<RecentBookingRow[]>(() => {
     return [...bookings]
