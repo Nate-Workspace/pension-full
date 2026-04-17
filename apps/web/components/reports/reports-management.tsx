@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useEffect } from "react";
 import {
   Bar,
@@ -14,8 +14,6 @@ import {
   YAxis,
 } from "recharts";
 
-import type { Booking, RoomType } from "@/data";
-import { useOperationsData } from "@/components/providers/operations-provider";
 import { ChartWrapper, MetricCard } from "@/components/ui";
 
 type OccupancyPoint = {
@@ -38,60 +36,26 @@ type PeakDayPoint = {
   count: number;
 };
 
-const WEEK_DAY_LABELS = [
-  "Sun",
-  "Mon",
-  "Tue",
-  "Wed",
-  "Thu",
-  "Fri",
-  "Sat",
-] as const;
+type ReportsAnalyticsResponse = {
+  startDate: string;
+  endDate: string;
+  occupancySeries: OccupancyPoint[];
+  revenueSeries: Array<{ day: string; revenue: number }>;
+  revenueByRoomType: RoomTypeRevenuePoint[];
+  mostBookedRooms: MostBookedRoomPoint[];
+  peakBookingDays: PeakDayPoint[];
+  summaries: {
+    averageOccupancy: number;
+    totalRevenue: number;
+    topRoom: MostBookedRoomPoint;
+    peakDay: PeakDayPoint;
+  };
+};
+
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000").replace(/\/$/, "");
 
 function formatMoney(value: number): string {
   return `${value.toLocaleString("en-US")} Birr`;
-}
-
-function parseIsoDate(value: string): Date {
-  return new Date(`${value}T00:00:00Z`);
-}
-
-function toIsoDate(value: Date): string {
-  const year = value.getUTCFullYear();
-  const month = String(value.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(value.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function eachDayInRange(startDate: string, endDate: string): string[] {
-  const start = parseIsoDate(startDate);
-  const end = parseIsoDate(endDate);
-
-  const dates: string[] = [];
-  const cursor = new Date(start);
-
-  while (cursor <= end) {
-    dates.push(toIsoDate(cursor));
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-
-  return dates;
-}
-
-function intersectsRange(
-  booking: Pick<Booking, "checkInDate" | "checkOutDate">,
-  startDate: string,
-  endDate: string,
-): boolean {
-  return booking.checkInDate <= endDate && booking.checkOutDate > startDate;
-}
-
-function labelForRoomType(type: RoomType): string {
-  if (type === "vip") {
-    return "VIP";
-  }
-
-  return `${type.slice(0, 1).toUpperCase()}${type.slice(1)}`;
 }
 
 function toNumber(
@@ -113,174 +77,83 @@ function toNumber(
   return 0;
 }
 
-function shortDateLabel(isoDate: string): string {
-  return parseIsoDate(isoDate).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function isDateInRange(
-  day: string,
-  startDate: string,
-  endDate: string,
-): boolean {
-  return day >= startDate && day <= endDate;
-}
-
 export function ReportsManagement() {
-  const { bookings, payments, rooms } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
   const [startDate, setStartDate] = useState("2026-03-20");
   const [endDate, setEndDate] = useState("2026-04-02");
+  const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => setIsLoading(false), 450);
-    return () => window.clearTimeout(timer);
-  }, []);
+  const [occupancySeries, setOccupancySeries] = useState<OccupancyPoint[]>([]);
+  const [revenueByRoomType, setRevenueByRoomType] = useState<RoomTypeRevenuePoint[]>([]);
+  const [mostBookedRooms, setMostBookedRooms] = useState<MostBookedRoomPoint[]>([]);
+  const [peakBookingDays, setPeakBookingDays] = useState<PeakDayPoint[]>([]);
+  const [summaries, setSummaries] = useState({
+    averageOccupancy: 0,
+    totalRevenue: 0,
+    peakDay: { day: "-", count: 0 },
+    topRoom: { room: "-", count: 0 },
+  });
 
-  const roomById = useMemo(
-    () => new Map(rooms.map((room) => [room.id, room])),
-    [rooms],
-  );
-  const bookingById = useMemo(
-    () => new Map(bookings.map((booking) => [booking.id, booking])),
-    [bookings],
-  );
+  const fetchAnalytics = useCallback(async () => {
+    const params = new URLSearchParams({
+      startDate,
+      endDate,
+    });
+
+    const response = await fetch(`${API_BASE_URL}/reports/analytics?${params.toString()}`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to load reports analytics (${response.status}).`);
+    }
+
+    const payload = (await response.json()) as ReportsAnalyticsResponse;
+    setOccupancySeries(payload.occupancySeries);
+    setRevenueByRoomType(payload.revenueByRoomType);
+    setMostBookedRooms(payload.mostBookedRooms);
+    setPeakBookingDays(payload.peakBookingDays);
+    setSummaries(payload.summaries);
+  }, [endDate, startDate]);
 
   const validRange = startDate <= endDate;
 
-  const scopedBookings = useMemo(() => {
-    if (!validRange) {
-      return [];
-    }
+  useEffect(() => {
+    let isMounted = true;
 
-    return bookings.filter(
-      (booking) =>
-        booking.status !== "cancelled" &&
-        intersectsRange(booking, startDate, endDate),
-    );
-  }, [bookings, endDate, startDate, validRange]);
+    const load = async () => {
+      if (!validRange) {
+        setFormError("End date must be greater than or equal to start date.");
+        return;
+      }
 
-  const occupancySeries = useMemo<OccupancyPoint[]>(() => {
-    if (!validRange) {
-      return [];
-    }
+      setFormError(null);
+      setIsLoading(true);
 
-    const days = eachDayInRange(startDate, endDate);
-
-    return days.map((day) => {
-      const active = scopedBookings.filter(
-        (booking) => day >= booking.checkInDate && day < booking.checkOutDate,
-      ).length;
-
-      return {
-        day: shortDateLabel(day),
-        rate: Math.round((active / rooms.length) * 100),
-      };
-    });
-  }, [endDate, rooms.length, scopedBookings, startDate, validRange]);
-
-  const revenueByRoomType = useMemo<RoomTypeRevenuePoint[]>(() => {
-    const totals: Record<RoomType, number> = {
-      single: 0,
-      double: 0,
-      vip: 0,
+      try {
+        await fetchAnalytics();
+      } catch (error) {
+        if (isMounted) {
+          console.error(error);
+          setFormError(error instanceof Error ? error.message : "Unable to load reports.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
     };
 
-    payments.forEach((payment) => {
-      const paidDay = payment.paidAt?.slice(0, 10);
+    void load();
 
-      if (!paidDay || !isDateInRange(paidDay, startDate, endDate)) {
-        return;
-      }
-
-      const booking = bookingById.get(payment.bookingId);
-
-      if (!booking || booking.status === "cancelled") {
-        return;
-      }
-
-      const room = roomById.get(booking.roomId);
-
-      if (!room) {
-        return;
-      }
-
-      totals[room.type] += payment.amount;
-    });
-
-    return (["single", "double", "vip"] as const).map((roomType) => ({
-      roomType: labelForRoomType(roomType),
-      revenue: totals[roomType],
-    }));
-  }, [bookingById, endDate, payments, roomById, startDate]);
-
-  const mostBookedRooms = useMemo<MostBookedRoomPoint[]>(() => {
-    const counts = new Map<string, number>();
-
-    scopedBookings.forEach((booking) => {
-      counts.set(booking.roomId, (counts.get(booking.roomId) ?? 0) + 1);
-    });
-
-    return Array.from(counts.entries())
-      .map(([roomId, count]) => ({
-        room: `Room ${roomById.get(roomId)?.number ?? "N/A"}`,
-        count,
-      }))
-      .sort((left, right) => right.count - left.count)
-      .slice(0, 5);
-  }, [roomById, scopedBookings]);
-
-  const peakBookingDays = useMemo<PeakDayPoint[]>(() => {
-    const counts = new Map<number, number>();
-
-    bookings
-      .filter(
-        (booking) =>
-          booking.status !== "cancelled" &&
-          isDateInRange(booking.checkInDate, startDate, endDate),
-      )
-      .forEach((booking) => {
-        const dayIndex = parseIsoDate(booking.checkInDate).getUTCDay();
-        counts.set(dayIndex, (counts.get(dayIndex) ?? 0) + 1);
-      });
-
-    return WEEK_DAY_LABELS.map((label, dayIndex) => ({
-      day: label,
-      count: counts.get(dayIndex) ?? 0,
-    }));
-  }, [bookings, endDate, startDate]);
-
-  const summaries = useMemo(() => {
-    const averageOccupancy =
-      occupancySeries.length === 0
-        ? 0
-        : Math.round(
-            occupancySeries.reduce((sum, item) => sum + item.rate, 0) /
-              occupancySeries.length,
-          );
-
-    const totalRevenue = revenueByRoomType.reduce(
-      (sum, item) => sum + item.revenue,
-      0,
-    );
-    const peakDay = peakBookingDays.reduce<PeakDayPoint | null>((top, item) => {
-      if (!top || item.count > top.count) {
-        return item;
-      }
-      return top;
-    }, null) ?? { day: "-", count: 0 };
-
-    const topRoom = mostBookedRooms[0] ?? { room: "-", count: 0 };
-
-    return {
-      averageOccupancy,
-      totalRevenue,
-      peakDay,
-      topRoom,
+    return () => {
+      isMounted = false;
     };
-  }, [mostBookedRooms, occupancySeries, peakBookingDays, revenueByRoomType]);
+  }, [fetchAnalytics, validRange]);
 
   return (
     <div className="space-y-6">
@@ -325,6 +198,12 @@ export function ReportsManagement() {
       {!validRange ? (
         <section className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           End date must be greater than or equal to start date.
+        </section>
+      ) : null}
+
+      {formError && validRange ? (
+        <section className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {formError}
         </section>
       ) : null}
 
