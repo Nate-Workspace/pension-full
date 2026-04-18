@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import type { Room, RoomType } from "@/data";
 import { useOperationsData } from "@/components/providers/operations-provider";
 import { DataTable, FormSurface, MetricCard, StatusBadge } from "@/components/ui";
+import { apiFetch } from "@/lib/api-client";
 import { ROOM_STATUS_LABELS, type RoomStatus } from "@/lib/types/status";
 
 type StatusFilter = "all" | RoomStatus;
@@ -31,8 +32,6 @@ type RoomFormState = {
 
 const ROOM_TYPES: RoomType[] = ["single", "double", "vip"];
 const ROOM_STATUSES: RoomStatus[] = ["available", "occupied", "cleaning", "maintenance"];
-
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000").replace(/\/$/, "");
 
 function roomTypeLabel(type: RoomType): string {
   if (type === "vip") {
@@ -71,9 +70,9 @@ function createFormStateFromRoom(room: Room): RoomFormState {
   };
 }
 
-function sanitizeRoomForStatus(room: Room): Room {
-  return room;
-}
+// function sanitizeRoomForStatus(room: Room): Room {
+//   return room;
+// }
 
 function mapApiRoomToUiRoom(room: RoomWithGuest): RoomWithGuest {
   return {
@@ -136,9 +135,9 @@ export function RoomsManagement() {
     }
 
     const query = params.toString();
-    const endpoint = `${API_BASE_URL}/rooms${query.length > 0 ? `?${query}` : ""}`;
+    const endpoint = `/rooms${query.length > 0 ? `?${query}` : ""}`;
 
-    const response = await fetch(endpoint, {
+    const response = await apiFetch(endpoint, {
       method: "GET",
       headers: {
         Accept: "application/json",
@@ -228,7 +227,7 @@ export function RoomsManagement() {
 
     void (async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/status`, {
+        const response = await apiFetch(`/rooms/${roomId}/status`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -270,7 +269,7 @@ export function RoomsManagement() {
     void (async () => {
       try {
         if (!formState.id) {
-          const createResponse = await fetch(`${API_BASE_URL}/rooms`, {
+          const createResponse = await apiFetch("/rooms", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -295,7 +294,7 @@ export function RoomsManagement() {
           setRooms((currentRooms) => [...currentRooms, createdRoom]);
         } else {
           const existingRoom = rooms.find((room) => room.id === formState.id);
-          const patchResponse = await fetch(`${API_BASE_URL}/rooms/${formState.id}`, {
+          const patchResponse = await apiFetch(`/rooms/${formState.id}`, {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
@@ -318,7 +317,7 @@ export function RoomsManagement() {
           let updatedRoom = mapApiRoomToUiRoom((await patchResponse.json()) as RoomWithGuest);
 
           if (existingRoom && existingRoom.status !== formState.status) {
-            const statusResponse = await fetch(`${API_BASE_URL}/rooms/${formState.id}/status`, {
+            const statusResponse = await apiFetch(`/rooms/${formState.id}/status`, {
               method: "PATCH",
               headers: {
                 "Content-Type": "application/json",

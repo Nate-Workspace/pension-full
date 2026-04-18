@@ -16,6 +16,7 @@ import {
 
 import type { Booking, BookingStatus, Room } from "@/data";
 import { ChartWrapper, DataTable, MetricCard, StatusBadge } from "@/components/ui";
+import { apiFetch } from "@/lib/api-client";
 import { toIsoDate } from "@/lib/operations";
 
 type OccupancyPoint = {
@@ -158,8 +159,6 @@ function alertCategoryLabel(category: AlertRow["category"]): string {
   return "Cleaning";
 }
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000").replace(/\/$/, "");
-
 async function getJson<T>(response: Response, fallback: string): Promise<T> {
   if (!response.ok) {
     throw new Error(fallback);
@@ -180,22 +179,22 @@ export function DashboardOverview() {
     const params = new URLSearchParams({ operationDay });
 
     const [summaryResponse, trendsResponse, bookingsResponse, roomsResponse] = await Promise.all([
-      fetch(`${API_BASE_URL}/dashboard/summary?${params.toString()}`, {
+      apiFetch(`/dashboard/summary?${params.toString()}`, {
         method: "GET",
         headers: { Accept: "application/json" },
         cache: "no-store",
       }),
-      fetch(`${API_BASE_URL}/dashboard/trends?${params.toString()}`, {
+      apiFetch(`/dashboard/trends?${params.toString()}`, {
         method: "GET",
         headers: { Accept: "application/json" },
         cache: "no-store",
       }),
-      fetch(`${API_BASE_URL}/bookings`, {
+      apiFetch("/bookings", {
         method: "GET",
         headers: { Accept: "application/json" },
         cache: "no-store",
       }),
-      fetch(`${API_BASE_URL}/rooms?${params.toString()}`, {
+      apiFetch(`/rooms?${params.toString()}`, {
         method: "GET",
         headers: { Accept: "application/json" },
         cache: "no-store",

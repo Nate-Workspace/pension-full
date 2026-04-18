@@ -15,6 +15,7 @@ import {
 } from "recharts";
 
 import { ChartWrapper, MetricCard } from "@/components/ui";
+import { apiFetch } from "@/lib/api-client";
 
 type OccupancyPoint = {
   day: string;
@@ -51,8 +52,6 @@ type ReportsAnalyticsResponse = {
     peakDay: PeakDayPoint;
   };
 };
-
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000").replace(/\/$/, "");
 
 function formatMoney(value: number): string {
   return `${value.toLocaleString("en-US")} Birr`;
@@ -100,7 +99,7 @@ export function ReportsManagement() {
       endDate,
     });
 
-    const response = await fetch(`${API_BASE_URL}/reports/analytics?${params.toString()}`, {
+    const response = await apiFetch(`/reports/analytics?${params.toString()}`, {
       method: "GET",
       headers: {
         Accept: "application/json",

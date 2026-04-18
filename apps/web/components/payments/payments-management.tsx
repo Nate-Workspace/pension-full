@@ -14,15 +14,9 @@ import {
   YAxis,
 } from "recharts";
 
-import type { Payment, PaymentMethod } from "@/data";
-import { useOperationsData } from "@/components/providers/operations-provider";
+import type { PaymentMethod } from "@/data";
 import { ChartWrapper, DataTable, MetricCard } from "@/components/ui";
-import {
-  getCollectedForDay,
-  getCollectedForMonth,
-  getOutstandingPayments,
-  getPaymentIssueCounts,
-} from "@/lib/operations";
+import { apiFetch } from "@/lib/api-client";
 
 type MethodFilter = "all" | PaymentMethod;
 
@@ -36,6 +30,43 @@ type MethodPoint = {
   value: number;
 };
 
+type PaymentStatus = "paid" | "partial" | "unpaid";
+
+type PaymentsResponseRow = {
+  id: string;
+  bookingId: string;
+  roomId: string;
+  amount: number;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  paidAt?: string;
+  reference: string;
+  bookingCode: string;
+  guestName: string;
+  guestPhone?: string;
+  roomNumber: string;
+  outstanding: number;
+};
+
+type PaymentsSummaryResponse = {
+  operationDay: string;
+  dailyCollected: number;
+  monthlyCollected: number;
+  outstandingBalances: number;
+  unpaidCount: number;
+  partialCount: number;
+};
+
+type PaymentsTrendsResponse = {
+  operationDay: string;
+  daily: Array<DailyPoint & { day: string }>;
+  byMethod: Array<{ method: PaymentMethod; value: number }>;
+};
+
+type ApiErrorPayload = {
+  message?: string | string[];
+};
+
 function formatMoney(value: number): string {
   return `${value.toLocaleString("en-US")} Birr`;
 }
@@ -47,17 +78,11 @@ function toDayLabel(iso: string): string {
   });
 }
 
-function addDays(day: string, days: number): string {
-  const value = new Date(`${day}T00:00:00Z`);
-  value.setUTCDate(value.getUTCDate() + days);
-  return value.toISOString().slice(0, 10);
-}
-
 function methodLabel(method: PaymentMethod): string {
   return method === "mobile_money" ? "Mobile Money" : "Cash";
 }
 
-function paymentStatusStyle(status: Payment["status"]): string {
+function paymentStatusStyle(status: PaymentStatus): string {
   if (status === "paid") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
@@ -69,7 +94,7 @@ function paymentStatusStyle(status: Payment["status"]): string {
   return "border-rose-200 bg-rose-50 text-rose-700";
 }
 
-function paymentStatusLabel(status: Payment["status"]): string {
+function paymentStatusLabel(status: PaymentStatus): string {
   if (status === "paid") {
     return "Paid";
   }
@@ -81,57 +106,145 @@ function paymentStatusLabel(status: Payment["status"]): string {
   return "Unpaid";
 }
 
+async function getErrorMessage(response: Response, fallback: string): Promise<string> {
+  const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null;
+
+  if (!payload?.message) {
+    return fallback;
+  }
+
+  if (Array.isArray(payload.message)) {
+    return payload.message[0] ?? fallback;
+  }
+
+  return payload.message;
+}
+
 export function PaymentsManagement() {
-  const { bookings, payments, rooms, operationDay } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [methodFilter, setMethodFilter] = useState<MethodFilter>("all");
+  const statusFilter: "all" | PaymentStatus = "all";
+
+  const [paymentRows, setPaymentRows] = useState<PaymentsResponseRow[]>([]);
+  const [summaries, setSummaries] = useState<PaymentsSummaryResponse>({
+    operationDay: new Date().toISOString().slice(0, 10),
+    dailyCollected: 0,
+    monthlyCollected: 0,
+    outstandingBalances: 0,
+    unpaidCount: 0,
+    partialCount: 0,
+  });
+  const [dailyTrend, setDailyTrend] = useState<DailyPoint[]>([]);
+  const [methodTrend, setMethodTrend] = useState<MethodPoint[]>([]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setIsLoading(false), 450);
-    return () => window.clearTimeout(timer);
+    let isMounted = true;
+
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+
+      try {
+        const [paymentsResponse, summaryResponse, trendsResponse] = await Promise.all([
+          apiFetch("/payments", {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+            },
+            cache: "no-store",
+          }),
+          apiFetch("/payments/summary", {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+            },
+            cache: "no-store",
+          }),
+          apiFetch("/payments/trends", {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+            },
+            cache: "no-store",
+          }),
+        ]);
+
+        if (!paymentsResponse.ok) {
+          throw new Error(await getErrorMessage(paymentsResponse, `Failed to load payments (${paymentsResponse.status}).`));
+        }
+
+        if (!summaryResponse.ok) {
+          throw new Error(await getErrorMessage(summaryResponse, `Failed to load payment summary (${summaryResponse.status}).`));
+        }
+
+        if (!trendsResponse.ok) {
+          throw new Error(await getErrorMessage(trendsResponse, `Failed to load payment trends (${trendsResponse.status}).`));
+        }
+
+        const [paymentsPayload, summaryPayload, trendsPayload] = await Promise.all([
+          paymentsResponse.json() as Promise<PaymentsResponseRow[]>,
+          summaryResponse.json() as Promise<PaymentsSummaryResponse>,
+          trendsResponse.json() as Promise<PaymentsTrendsResponse>,
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setPaymentRows(
+          [...paymentsPayload].sort((left, right) => {
+            const leftDate = left.paidAt ?? "";
+            const rightDate = right.paidAt ?? "";
+            return rightDate.localeCompare(leftDate);
+          }),
+        );
+        setSummaries(summaryPayload);
+        setDailyTrend(
+          [...trendsPayload.daily].sort((left, right) => {
+            return left.day.localeCompare(right.day);
+          }).map((entry) => ({
+            label: entry.label,
+            value: entry.value,
+          })),
+        );
+        setMethodTrend(
+          trendsPayload.byMethod.map((entry) => ({
+            method: methodLabel(entry.method),
+            value: entry.value,
+          })),
+        );
+      } catch (error) {
+        if (isMounted) {
+          setLoadError(error instanceof Error ? error.message : "Unable to load payments data.");
+          setPaymentRows([]);
+          setDailyTrend([]);
+          setMethodTrend([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
-
-  const roomById = useMemo(() => new Map(rooms.map((item) => [item.id, item])), [rooms]);
-
-  const paidByBooking = useMemo(() => {
-    return payments.reduce<Map<string, number>>((map, payment) => {
-      const current = map.get(payment.bookingId) ?? 0;
-      map.set(payment.bookingId, current + payment.amount);
-      return map;
-    }, new Map<string, number>());
-  }, [payments]);
-
-  const paymentRows = useMemo(() => {
-    return payments
-      .map((payment) => {
-        const booking = bookings.find((item) => item.id === payment.bookingId);
-        const room = roomById.get(payment.roomId);
-        const bookingTotal = booking?.totalAmount ?? 0;
-        const paidTotal = paidByBooking.get(payment.bookingId) ?? 0;
-
-        return {
-          ...payment,
-          bookingCode: booking?.code ?? "N/A",
-          guestName: booking?.guest.name ?? "Unknown",
-          guestPhone: booking?.guest.phone,
-          roomNumber: room?.number ?? "N/A",
-          outstanding: Math.max(bookingTotal - paidTotal, 0),
-          paidDate: payment.paidAt?.slice(0, 10),
-        };
-      })
-      .sort((left, right) => {
-        const leftDate = left.paidDate ?? "0000-00-00";
-        const rightDate = right.paidDate ?? "0000-00-00";
-        return rightDate.localeCompare(leftDate);
-      });
-  }, [bookings, paidByBooking, payments, roomById]);
 
   const filteredRows = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
     return paymentRows.filter((row) => {
       if (methodFilter !== "all" && row.method !== methodFilter) {
+        return false;
+      }
+
+      if (statusFilter !== "all" && row.status !== statusFilter) {
         return false;
       }
 
@@ -143,54 +256,11 @@ export function PaymentsManagement() {
         row.reference.toLowerCase().includes(normalizedQuery) ||
         row.bookingCode.toLowerCase().includes(normalizedQuery) ||
         row.guestName.toLowerCase().includes(normalizedQuery) ||
+        paymentStatusLabel(row.status).toLowerCase().includes(normalizedQuery) ||
         row.roomNumber.toLowerCase().includes(normalizedQuery)
       );
     });
-  }, [methodFilter, paymentRows, query]);
-
-  const summaries = useMemo(() => {
-    const monthPrefix = operationDay.slice(0, 7);
-    const counts = getPaymentIssueCounts(bookings);
-
-    const dailyCollected = getCollectedForDay(bookings, operationDay);
-    const monthlyCollected = getCollectedForMonth(bookings, monthPrefix);
-    const outstandingTotal = getOutstandingPayments(bookings);
-
-    return {
-      dailyCollected,
-      monthlyCollected,
-      unpaidCount: counts.unpaid,
-      partialCount: counts.partial,
-      outstandingTotal,
-    };
-  }, [bookings, operationDay]);
-
-  const dailyTrend = useMemo<DailyPoint[]>(() => {
-    return Array.from({ length: 7 }, (_, index) => {
-      const day = addDays(operationDay, index - 6);
-      const value = getCollectedForDay(bookings, day);
-
-      return {
-        label: toDayLabel(day),
-        value,
-      };
-    });
-  }, [bookings, operationDay]);
-
-  const methodTrend = useMemo<MethodPoint[]>(() => {
-    const cash = payments
-      .filter((payment) => payment.method === "cash")
-      .reduce((sum, payment) => sum + payment.amount, 0);
-
-    const mobileMoney = payments
-      .filter((payment) => payment.method === "mobile_money")
-      .reduce((sum, payment) => sum + payment.amount, 0);
-
-    return [
-      { method: "Cash", value: cash },
-      { method: "Mobile Money", value: mobileMoney },
-    ];
-  }, [payments]);
+  }, [methodFilter, paymentRows, query, statusFilter]);
 
   return (
     <div className="space-y-6">
@@ -204,10 +274,16 @@ export function PaymentsManagement() {
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard title="Daily Collected" value={formatMoney(summaries.dailyCollected)} />
         <MetricCard title="Monthly Collected" value={formatMoney(summaries.monthlyCollected)} />
-        <MetricCard title="Outstanding" value={formatMoney(summaries.outstandingTotal)} />
+        <MetricCard title="Outstanding" value={formatMoney(summaries.outstandingBalances)} />
         <MetricCard title="Unpaid Records" value={String(summaries.unpaidCount)} />
         <MetricCard title="Partial Payments" value={String(summaries.partialCount)} />
       </section>
+
+      {loadError ? (
+        <section className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {loadError}
+        </section>
+      ) : null}
 
       <section className="grid gap-4 xl:grid-cols-2">
         <ChartWrapper
@@ -343,7 +419,7 @@ export function PaymentsManagement() {
               key: "date",
               header: "Paid At",
               align: "right",
-              render: (row) => (row.paidDate ? toDayLabel(row.paidDate) : "Pending"),
+              render: (row) => (row.paidAt ? toDayLabel(row.paidAt.slice(0, 10)) : "Pending"),
             },
           ]}
           data={filteredRows}

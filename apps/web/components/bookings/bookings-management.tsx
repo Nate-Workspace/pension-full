@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import type { Booking, BookingStatus, Room } from "@/data";
 import { useOperationsData } from "@/components/providers/operations-provider";
 import { DataTable, FormSurface, MetricCard } from "@/components/ui";
+import { apiFetch } from "@/lib/api-client";
 import {
   diffNights,
   isBookingActiveOn,
@@ -46,8 +47,6 @@ type CalendarReservation = {
 type ApiErrorPayload = {
   message?: string | string[];
 };
-
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000").replace(/\/$/, "");
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
@@ -209,9 +208,9 @@ export function BookingsManagement() {
   });
 
   const fetchBookings = useCallback(async () => {
-    const endpoint = `${API_BASE_URL}/bookings`;
+    const endpoint = "/bookings";
 
-    const response = await fetch(endpoint, {
+    const response = await apiFetch(endpoint, {
       method: "GET",
       headers: {
         Accept: "application/json",
@@ -235,9 +234,9 @@ export function BookingsManagement() {
     }
 
     const query = params.toString();
-    const endpoint = `${API_BASE_URL}/rooms${query.length > 0 ? `?${query}` : ""}`;
+    const endpoint = `/rooms${query.length > 0 ? `?${query}` : ""}`;
 
-    const response = await fetch(endpoint, {
+    const response = await apiFetch(endpoint, {
       method: "GET",
       headers: {
         Accept: "application/json",
@@ -405,7 +404,7 @@ export function BookingsManagement() {
 
     void (async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}/checkout`, {
+        const response = await apiFetch(`/bookings/${bookingId}/checkout`, {
           method: "POST",
           headers: {
             Accept: "application/json",
@@ -433,7 +432,7 @@ export function BookingsManagement() {
 
     void (async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/status`, {
+        const response = await apiFetch(`/rooms/${roomId}/status`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -497,10 +496,10 @@ export function BookingsManagement() {
 
     void (async () => {
       try {
-        const endpoint = formState.id ? `${API_BASE_URL}/bookings/${formState.id}` : `${API_BASE_URL}/bookings`;
+        const endpoint = formState.id ? `/bookings/${formState.id}` : "/bookings";
         const method = formState.id ? "PATCH" : "POST";
 
-        const response = await fetch(endpoint, {
+        const response = await apiFetch(endpoint, {
           method,
           headers: {
             "Content-Type": "application/json",
@@ -529,7 +528,7 @@ export function BookingsManagement() {
 
     void (async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}/cancel`, {
+        const response = await apiFetch(`/bookings/${bookingId}/cancel`, {
           method: "POST",
           headers: {
             Accept: "application/json",
