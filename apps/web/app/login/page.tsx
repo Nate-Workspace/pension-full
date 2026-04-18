@@ -39,7 +39,7 @@ async function getErrorMessage(response: Response, fallback: string): Promise<st
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser } = useAuth();
+  const { isAuthenticated, isAuthResolved, setUser } = useAuth();
 
   const [form, setForm] = useState<LoginPayload>({
     email: "",
@@ -49,38 +49,14 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
+    if (!isAuthResolved) {
+      return;
+    }
 
-    const checkCurrentSession = async () => {
-      const response = await apiFetch("/auth/me", {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
-        cache: "no-store",
-        skipAuthRedirect: true,
-      });
-
-      if (!response.ok) {
-        return;
-      }
-
-      const payload = (await response.json()) as LoginResponse["user"];
-
-      if (!isMounted) {
-        return;
-      }
-
-      setUser(payload);
+    if (isAuthenticated) {
       router.replace("/dashboard");
-    };
-
-    void checkCurrentSession();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [router, setUser]);
+    }
+  }, [isAuthenticated, isAuthResolved, router]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
