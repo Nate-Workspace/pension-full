@@ -1,5 +1,9 @@
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000").replace(/\/$/, "");
 
+type ApiFetchOptions = RequestInit & {
+  skipAuthRedirect?: boolean;
+};
+
 function buildApiUrl(path: string): string {
   if (path.startsWith("http://") || path.startsWith("https://")) {
     return path;
@@ -9,13 +13,15 @@ function buildApiUrl(path: string): string {
   return `${API_BASE_URL}${normalizedPath}`;
 }
 
-export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+export async function apiFetch(path: string, init?: ApiFetchOptions): Promise<Response> {
+  const { skipAuthRedirect = false, ...requestInit } = init ?? {};
+
   const response = await fetch(buildApiUrl(path), {
-    ...init,
+    ...requestInit,
     credentials: "include",
   });
 
-  if (response.status === 401 && typeof window !== "undefined") {
+  if (!skipAuthRedirect && response.status === 401 && typeof window !== "undefined") {
     window.location.assign("/login");
   }
 
