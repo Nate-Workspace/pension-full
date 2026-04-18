@@ -15,8 +15,8 @@ import type { User as PublicUser } from '@repo/types';
 
 type DbUser = typeof usersTable.$inferSelect;
 type RegisteredUser = Pick<PublicUser, 'id' | 'email' | 'role'>;
-type LoginResponse = {
-  accessToken: string;
+type AuthSession = {
+  token: string;
   user: RegisteredUser;
 };
 
@@ -24,7 +24,7 @@ type LoginResponse = {
 export class AuthService {
   constructor(private readonly jwtService: JwtService) {}
 
-  async register(body: RegisterInput): Promise<RegisteredUser> {
+  async register(body: RegisterInput): Promise<AuthSession> {
     const input = registerSchema.parse(body);
     const existingUser = await this.findUserByEmail(input.email);
 
@@ -49,7 +49,7 @@ export class AuthService {
       throw new InternalServerErrorException('Failed to create user');
     }
 
-    return this.toRegisteredUser(createdRecord);
+    return this.createAuthSession(this.toPublicUser(createdRecord));
   }
 
   async validateUserCredentials(body: LoginInput): Promise<PublicUser> {
@@ -69,9 +69,9 @@ export class AuthService {
     return this.toPublicUser(user);
   }
 
-  async login(body: LoginInput): Promise<LoginResponse> {
+  async login(body: LoginInput): Promise<AuthSession> {
     const user = await this.validateUserCredentials(body);
-    return this.createAuthResponse(user);
+    return this.createAuthSession(user);
   }
 
   async getCurrentUser(userId: string): Promise<RegisteredUser> {
@@ -104,14 +104,16 @@ export class AuthService {
     return user;
   }
 
-  private createAuthResponse(user: PublicUser): LoginResponse {
-    const accessToken = this.jwtService.sign({
+  createAuthToken(user: Pick<PublicUser, 'id' | 'role'>): string {
+    return this.jwtService.sign({
       userId: user.id,
       role: user.role,
     });
+  }
 
+  private createAuthSession(user: PublicUser): AuthSession {
     return {
-      accessToken,
+      token: this.createAuthToken(user),
       user: {
         id: user.id,
         email: user.email,
