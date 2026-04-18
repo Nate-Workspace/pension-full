@@ -14,6 +14,9 @@ export interface JwtRequestUser {
 }
 
 type AuthenticatedRequest = Request & {
+  cookies?: {
+    access_token?: string;
+  };
   user?: JwtRequestUser;
 };
 
@@ -22,19 +25,11 @@ export class JwtAuthGuard implements CanActivate {
   constructor(private readonly jwtService: JwtService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    console.log(
-      'Context: ',
-      context.getClass().name,
-      context.getHandler().name,
-    ); // Debugging line
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    console.log('Request headers: ', request.headers); // Debugging line
-    const token = this.extractBearerToken(request);
-
-    console.log('Extracted token: ', token); // Debugging line
+    const token = this.extractToken(request);
 
     if (!token) {
-      throw new UnauthorizedException('Missing bearer token');
+      throw new UnauthorizedException('Missing authentication token');
     }
 
     try {
@@ -59,9 +54,14 @@ export class JwtAuthGuard implements CanActivate {
     }
   }
 
-  private extractBearerToken(request: Request): string | undefined {
-    const authorization = request.headers.authorization; //This is the  'Bearer <token>' string here boi
-    console.log('Authorization header: ', authorization); // Debugging line
+  private extractToken(request: AuthenticatedRequest): string | undefined {
+    const cookieToken = request.cookies?.access_token;
+
+    if (cookieToken) {
+      return cookieToken;
+    }
+
+    const authorization = request.headers.authorization;
 
     if (!authorization) {
       return undefined;
