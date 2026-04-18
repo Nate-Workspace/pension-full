@@ -1,8 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { useAuth } from "@/components/providers/auth-provider";
+import { apiFetch } from "@/lib/api-client";
 import { dashboardNavigation } from "@/lib/navigation";
 
 import { Header } from "./header";
@@ -13,8 +16,42 @@ type DashboardShellProps = {
 };
 
 export function DashboardShell({ children }: DashboardShellProps) {
+  const router = useRouter();
+  const { setUser } = useAuth();
   const pathname = usePathname();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = () => {
+    void (async () => {
+      if (isLoggingOut) {
+        return;
+      }
+
+      setIsLoggingOut(true);
+
+      try {
+        const response = await apiFetch("/auth/logout", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+          },
+          skipAuthRedirect: true,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Logout failed (${response.status}).`);
+        }
+
+        setUser(null);
+        router.replace("/login");
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoggingOut(false);
+      }
+    })();
+  };
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
@@ -46,7 +83,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header onOpenSidebar={() => setIsMobileNavOpen(true)} />
+        <Header
+          onOpenSidebar={() => setIsMobileNavOpen(true)}
+          onLogout={handleLogout}
+          isLoggingOut={isLoggingOut}
+        />
         <main className="min-h-[calc(100vh-4rem)] p-4 sm:p-6">{children}</main>
       </div>
     </div>

@@ -6,6 +6,8 @@ import { buildDashboardNotifications } from "@/lib/notifications";
 
 type HeaderProps = {
   onOpenSidebar: () => void;
+  onLogout: () => void;
+  isLoggingOut: boolean;
 };
 
 function MenuIcon() {
@@ -61,7 +63,7 @@ function notificationLabel(category: "cleaning" | "checkout" | "payment"): strin
   return "Cleaning";
 }
 
-export function Header({ onOpenSidebar }: HeaderProps) {
+export function Header({ onOpenSidebar, onLogout, isLoggingOut }: HeaderProps) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const notifications = useMemo(() => buildDashboardNotifications(), []);
 
@@ -153,6 +155,14 @@ export function Header({ onOpenSidebar }: HeaderProps) {
               <p className="text-sm font-medium text-slate-900">Nate I</p>
               <p className="text-xs text-slate-500">Administrator</p>
             </div>
+            <button
+              type="button"
+              onClick={onLogout}
+              disabled={isLoggingOut}
+              className="ml-1 rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isLoggingOut ? "Logging out..." : "Logout"}
+            </button>
           </div>
         </div>
       </div>
