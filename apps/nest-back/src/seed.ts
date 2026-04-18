@@ -36,11 +36,19 @@ async function seedUser(
     .limit(1)) as Array<{ id: string }>;
   const existingUser = existingUsers[0];
 
+  const hashedPassword = await hash(password, 10);
+
   if (existingUser) {
+    await db
+      .update(users)
+      .set({
+        password: hashedPassword,
+        role,
+      })
+      .where(eq(users.id, existingUser.id));
+
     return;
   }
-
-  const hashedPassword = await hash(password, 10);
 
   await db.insert(users).values({
     email,
