@@ -53,6 +53,28 @@ type ReportsAnalyticsResponse = {
   };
 };
 
+type ApiErrorPayload = {
+  message?: string | string[];
+};
+
+async function getErrorMessage(response: Response, fallback: string): Promise<string> {
+  if (response.status === 403) {
+    return "You do not have permission";
+  }
+
+  const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null;
+
+  if (!payload?.message) {
+    return fallback;
+  }
+
+  if (Array.isArray(payload.message)) {
+    return payload.message[0] ?? fallback;
+  }
+
+  return payload.message;
+}
+
 function formatMoney(value: number): string {
   return `${value.toLocaleString("en-US")} Birr`;
 }
@@ -108,7 +130,7 @@ export function ReportsManagement() {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to load reports analytics (${response.status}).`);
+      throw new Error(await getErrorMessage(response, `Failed to load reports analytics (${response.status}).`));
     }
 
     const payload = (await response.json()) as ReportsAnalyticsResponse;

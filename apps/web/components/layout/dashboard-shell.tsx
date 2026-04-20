@@ -17,10 +17,14 @@ type DashboardShellProps = {
 
 export function DashboardShell({ children }: DashboardShellProps) {
   const router = useRouter();
-  const { setUser } = useAuth();
+  const { isAdmin, setUser } = useAuth();
   const pathname = usePathname();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const visibleNavigation = isAdmin
+    ? dashboardNavigation
+    : dashboardNavigation.filter((item) => item.href !== '/settings' && item.href !== '/reports');
 
   const handleLogout = () => {
     void (async () => {
@@ -57,7 +61,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
       <div className="hidden w-72 shrink-0 lg:block">
         <div className="fixed inset-y-0 w-72">
-          <Sidebar items={dashboardNavigation} pathname={pathname} />
+          <Sidebar items={visibleNavigation} pathname={pathname} />
         </div>
       </div>
 
@@ -76,7 +80,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
         }`}
       >
         <Sidebar
-          items={dashboardNavigation}
+          items={visibleNavigation}
           pathname={pathname}
           onNavigate={() => setIsMobileNavOpen(false)}
         />

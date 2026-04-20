@@ -15,6 +15,8 @@ type AuthContextValue = {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isAuthResolved: boolean;
+  isAdmin: boolean;
+  isStaff: boolean;
   setUser: Dispatch<SetStateAction<AuthUser | null>>;
 };
 
@@ -76,6 +78,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       user,
       isAuthenticated: user !== null,
       isAuthResolved,
+      isAdmin: user?.role === 'admin',
+      isStaff: user?.role === 'staff',
       setUser,
     }),
     [isAuthResolved, user],

@@ -61,6 +61,10 @@ type ApiErrorPayload = {
 };
 
 async function getErrorMessage(response: Response, fallback: string): Promise<string> {
+  if (response.status === 403) {
+    return "You do not have permission";
+  }
+
   const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null;
 
   if (!payload?.message) {
@@ -140,15 +144,15 @@ export function SettingsManagement() {
         ]);
 
         if (!pensionInfoResponse.ok) {
-          throw new Error(`Failed to load pension info (${pensionInfoResponse.status}).`);
+          throw new Error(await getErrorMessage(pensionInfoResponse, `Failed to load pension info (${pensionInfoResponse.status}).`));
         }
 
         if (!pricingResponse.ok) {
-          throw new Error(`Failed to load pricing settings (${pricingResponse.status}).`);
+          throw new Error(await getErrorMessage(pricingResponse, `Failed to load pricing settings (${pricingResponse.status}).`));
         }
 
         if (!operationalResponse.ok) {
-          throw new Error(`Failed to load operational preferences (${operationalResponse.status}).`);
+          throw new Error(await getErrorMessage(operationalResponse, `Failed to load operational preferences (${operationalResponse.status}).`));
         }
 
         const [pensionInfoPayload, pricingPayload, operationalPayload] = await Promise.all([

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useEffect } from "react";
 
 import type { Room, RoomType } from "@/data";
+import { useAuth } from "@/components/providers/auth-provider";
 import { useOperationsData } from "@/components/providers/operations-provider";
 import { DataTable, FormSurface, MetricCard, StatusBadge } from "@/components/ui";
 import { apiFetch } from "@/lib/api-client";
@@ -114,6 +115,7 @@ function validateRoomForm(formState: RoomFormState, existingRooms: Room[]): stri
 }
 
 export function RoomsManagement() {
+  const { isAdmin } = useAuth();
   const { operationDay } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
   const [rooms, setRooms] = useState<RoomWithGuest[]>([]);
@@ -237,6 +239,10 @@ export function RoomsManagement() {
         });
 
         if (!response.ok) {
+          if (response.status === 403) {
+            throw new Error("You do not have permission");
+          }
+
           throw new Error(`Failed to update room status (${response.status}).`);
         }
 
@@ -287,6 +293,10 @@ export function RoomsManagement() {
           });
 
           if (!createResponse.ok) {
+            if (createResponse.status === 403) {
+              throw new Error("You do not have permission");
+            }
+
             throw new Error(`Failed to create room (${createResponse.status}).`);
           }
 
@@ -311,6 +321,10 @@ export function RoomsManagement() {
           });
 
           if (!patchResponse.ok) {
+            if (patchResponse.status === 403) {
+              throw new Error("You do not have permission");
+            }
+
             throw new Error(`Failed to update room (${patchResponse.status}).`);
           }
 
@@ -327,6 +341,10 @@ export function RoomsManagement() {
             });
 
             if (!statusResponse.ok) {
+              if (statusResponse.status === 403) {
+                throw new Error("You do not have permission");
+              }
+
               throw new Error(`Failed to update room status (${statusResponse.status}).`);
             }
 
@@ -411,26 +429,32 @@ export function RoomsManagement() {
       header: "Quick Actions",
       render: (room: RoomWithGuest) => (
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            aria-label={`Change status for room ${room.number}`}
-            value={room.status}
-            onChange={(event) => handleStatusChange(room.id, event.target.value as RoomStatus)}
-            className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700"
-          >
-            {ROOM_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {ROOM_STATUS_LABELS[status]}
-              </option>
-            ))}
-          </select>
+          {isAdmin ? (
+            <>
+              <select
+                aria-label={`Change status for room ${room.number}`}
+                value={room.status}
+                onChange={(event) => handleStatusChange(room.id, event.target.value as RoomStatus)}
+                className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700"
+              >
+                {ROOM_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {ROOM_STATUS_LABELS[status]}
+                  </option>
+                ))}
+              </select>
 
-          <button
-            type="button"
-            onClick={() => openEditDrawer(room)}
-            className="h-9 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"
-          >
-            Edit
-          </button>
+              <button
+                type="button"
+                onClick={() => openEditDrawer(room)}
+                className="h-9 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"
+              >
+                Edit
+              </button>
+            </>
+          ) : (
+            <span className="text-xs text-slate-500">Not permitted</span>
+          )}
         </div>
       ),
     },
@@ -446,13 +470,15 @@ export function RoomsManagement() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openAddDrawer}
-          className="inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
-        >
-          Add Room
-        </button>
+        {isAdmin ? (
+          <button
+            type="button"
+            onClick={openAddDrawer}
+            className="inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Add Room
+          </button>
+        ) : null}
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

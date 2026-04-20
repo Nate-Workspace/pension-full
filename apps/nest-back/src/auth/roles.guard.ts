@@ -16,7 +16,7 @@ type AuthenticatedRequest = Request & {
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {} // Reflector is used to read the metadata set by the @Roles() decorator
+  constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
@@ -40,10 +40,13 @@ export class RolesGuard implements CanActivate {
     }
 
     if (user.role === 'staff') {
-      // Keep staff behavior intentionally simple for now.
-      return requiredRoles.includes('staff');
+      if (requiredRoles.includes('staff')) {
+        return true;
+      }
+
+      throw new ForbiddenException('You do not have permission');
     }
 
-    return false;
+    throw new ForbiddenException('You do not have permission');
   }
 }
