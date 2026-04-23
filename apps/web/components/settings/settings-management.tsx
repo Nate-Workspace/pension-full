@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { apiFetch } from "@/lib/api-client";
 
@@ -104,91 +105,85 @@ export function SettingsManagement() {
     sendPaymentReminders: false,
   });
 
-  const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingPricing, setIsSavingPricing] = useState(false);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      const [pensionInfoResponse, pricingResponse, operationalResponse] = await Promise.all([
+        apiFetch("/settings/pension-info", {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        }),
+        apiFetch("/settings/pricing", {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        }),
+        apiFetch("/settings/operational-preferences", {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        }),
+      ]);
 
-    const loadSettings = async () => {
-      setIsLoading(true);
-      setFormError(null);
+      if (!pensionInfoResponse.ok) {
+        throw new Error(await getErrorMessage(pensionInfoResponse, `Failed to load pension info (${pensionInfoResponse.status}).`));
+      }
 
-      try {
-        const [pensionInfoResponse, pricingResponse, operationalResponse] = await Promise.all([
-          apiFetch("/settings/pension-info", {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
-            cache: "no-store",
-          }),
-          apiFetch("/settings/pricing", {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
-            cache: "no-store",
-          }),
-          apiFetch("/settings/operational-preferences", {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
-            cache: "no-store",
-          }),
-        ]);
+      if (!pricingResponse.ok) {
+        throw new Error(await getErrorMessage(pricingResponse, `Failed to load pricing settings (${pricingResponse.status}).`));
+      }
 
-        if (!pensionInfoResponse.ok) {
-          throw new Error(await getErrorMessage(pensionInfoResponse, `Failed to load pension info (${pensionInfoResponse.status}).`));
-        }
+      if (!operationalResponse.ok) {
+        throw new Error(await getErrorMessage(operationalResponse, `Failed to load operational preferences (${operationalResponse.status}).`));
+      }
 
-        if (!pricingResponse.ok) {
-          throw new Error(await getErrorMessage(pricingResponse, `Failed to load pricing settings (${pricingResponse.status}).`));
-        }
+      const [pensionInfoPayload, pricingPayload, operationalPayload] = await Promise.all([
+        pensionInfoResponse.json() as Promise<PensionInfoResponse>,
+        pricingResponse.json() as Promise<PricingResponse>,
+        operationalResponse.json() as Promise<OperationalPreferencesResponse>,
+      ]);
 
-        if (!operationalResponse.ok) {
-          throw new Error(await getErrorMessage(operationalResponse, `Failed to load operational preferences (${operationalResponse.status}).`));
-        }
-
-        const [pensionInfoPayload, pricingPayload, operationalPayload] = await Promise.all([
-          pensionInfoResponse.json() as Promise<PensionInfoResponse>,
-          pricingResponse.json() as Promise<PricingResponse>,
-          operationalResponse.json() as Promise<OperationalPreferencesResponse>,
-        ]);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setPensionInfo(pensionInfoPayload);
-        setRoomPricing({
+      return {
+        pensionInfo: pensionInfoPayload,
+        roomPricing: {
           single: String(pricingPayload.single),
           double: String(pricingPayload.double),
           vip: String(pricingPayload.vip),
-        });
-        setBasicConfig(operationalPayload);
-      } catch (error) {
-        if (isMounted) {
-          setFormError(error instanceof Error ? error.message : "Unable to load settings.");
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
+        },
+        basicConfig: operationalPayload,
+      };
+    },
+  });
 
-    void loadSettings();
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    setPensionInfo(data.pensionInfo);
+    setRoomPricing(data.roomPricing);
+    setBasicConfig(data.basicConfig);
+    setFormError(null);
+  }, [data]);
+
+  useEffect(() => {
+    if (error) {
+      setFormError(error instanceof Error ? error.message : "Unable to load settings.");
+    }
+  }, [error]);
 
   const pricingPreview = useMemo(() => {
     return {

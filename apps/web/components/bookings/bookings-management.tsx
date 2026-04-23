@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import type { Booking, BookingStatus, Room } from "@/data";
 import { useOperationsData } from "@/components/providers/operations-provider";
@@ -192,7 +193,6 @@ export function BookingsManagement() {
   const { operationDay } = useOperationsData();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<BookingFilter>("all");
@@ -207,81 +207,67 @@ export function BookingsManagement() {
     return startOfMonthUTC(day.getUTCFullYear(), day.getUTCMonth());
   });
 
-  const fetchBookings = useCallback(async () => {
-    const endpoint = "/bookings";
+  const { data: queryData, isLoading, error, refetch } = useQuery({
+    queryKey: ["bookings", { operationDay }],
+    queryFn: async () => {
+      const bookingsResponse = await apiFetch("/bookings", {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
 
-    const response = await apiFetch(endpoint, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    });
+      const roomsParams = new URLSearchParams();
 
-    if (!response.ok) {
-      throw new Error(await getErrorMessage(response, `Failed to load bookings (${response.status}).`));
-    }
+      if (operationDay) {
+        roomsParams.set("operationDay", operationDay);
+      }
 
-    const payload = (await response.json()) as Booking[];
-    setBookings(payload);
-  }, []);
+      const roomsQuery = roomsParams.toString();
+      const roomsResponse = await apiFetch(`/rooms${roomsQuery.length > 0 ? `?${roomsQuery}` : ""}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
 
-  const fetchRooms = useCallback(async () => {
-    const params = new URLSearchParams();
+      if (!bookingsResponse.ok) {
+        throw new Error(await getErrorMessage(bookingsResponse, `Failed to load bookings (${bookingsResponse.status}).`));
+      }
 
-    if (operationDay) {
-      params.set("operationDay", operationDay);
-    }
+      if (!roomsResponse.ok) {
+        throw new Error(await getErrorMessage(roomsResponse, `Failed to load rooms (${roomsResponse.status}).`));
+      }
 
-    const query = params.toString();
-    const endpoint = `/rooms${query.length > 0 ? `?${query}` : ""}`;
+      const [bookingsPayload, roomsPayload] = await Promise.all([
+        bookingsResponse.json() as Promise<Booking[]>,
+        roomsResponse.json() as Promise<Room[]>,
+      ]);
 
-    const response = await apiFetch(endpoint, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      throw new Error(await getErrorMessage(response, `Failed to load rooms (${response.status}).`));
-    }
-
-    const payload = (await response.json()) as Room[];
-    setRooms(payload.map(mapApiRoomToUiRoom));
-  }, [operationDay]);
-
-  const refreshData = useCallback(async () => {
-    await Promise.all([fetchBookings(), fetchRooms()]);
-  }, [fetchBookings, fetchRooms]);
+      return {
+        bookings: bookingsPayload,
+        rooms: roomsPayload.map(mapApiRoomToUiRoom),
+      };
+    },
+  });
 
   useEffect(() => {
-    let isMounted = true;
+    if (!queryData) {
+      return;
+    }
 
-    const load = async () => {
-      setIsLoading(true);
+    setBookings(queryData.bookings);
+    setRooms(queryData.rooms);
+  }, [queryData]);
 
-      try {
-        await refreshData();
-      } catch (error) {
-        if (isMounted) {
-          console.error(error);
-          setActionMessage(error instanceof Error ? error.message : "Unable to load bookings.");
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void load();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [refreshData]);
+  useEffect(() => {
+    if (error) {
+      console.error(error);
+      setActionMessage(error instanceof Error ? error.message : "Unable to load bookings.");
+    }
+  }, [error]);
 
   const roomById = useMemo(() => byId<Room>(rooms), [rooms]);
 
@@ -415,7 +401,7 @@ export function BookingsManagement() {
           throw new Error(await getErrorMessage(response, `Failed to check out booking (${response.status}).`));
         }
 
-        await refreshData();
+        await refetch();
         setActionMessage(`Booking ${booking.code} checked out. Room moved to cleaning.`);
       } catch (error) {
         console.error(error);
@@ -445,7 +431,7 @@ export function BookingsManagement() {
           throw new Error(await getErrorMessage(response, `Failed to set room available (${response.status}).`));
         }
 
-        await fetchRooms();
+        await refetch();
         setActionMessage("Room marked as available.");
       } catch (error) {
         console.error(error);
@@ -512,7 +498,7 @@ export function BookingsManagement() {
           throw new Error(await getErrorMessage(response, `Failed to save booking (${response.status}).`));
         }
 
-        await refreshData();
+        await refetch();
         setIsFormOpen(false);
         setFormError(null);
         setActionMessage("Booking saved successfully.");
@@ -539,7 +525,7 @@ export function BookingsManagement() {
           throw new Error(await getErrorMessage(response, `Failed to cancel booking (${response.status}).`));
         }
 
-        await refreshData();
+        await refetch();
         setActionMessage(booking ? `Booking ${booking.code} cancelled.` : "Booking cancelled.");
       } catch (error) {
         console.error(error);

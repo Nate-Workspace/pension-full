@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { IconChevronRight } from "@tabler/icons-react";
+import { Pagination } from "./pagination";
 
 export type DataTableColumn<TData> = {
   key: string;
@@ -20,6 +21,11 @@ type DataTableProps<TData> = {
   emptyTitle?: string;
   emptyDescription?: string;
   loadingRowCount?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+  onPageChange?: (nextPage: number) => void;
+  onPageSizeChange?: (nextPageSize: number) => void;
   className?: string;
 };
 
@@ -46,8 +52,19 @@ export function DataTable<TData>({
   emptyTitle = "No records found",
   emptyDescription = "Try adjusting filters or adding a new entry.",
   loadingRowCount = 5,
+  page,
+  pageSize,
+  totalPages,
+  onPageChange,
+  onPageSizeChange,
   className,
 }: DataTableProps<TData>) {
+  const shouldRenderPagination =
+    typeof page === "number" &&
+    typeof totalPages === "number" &&
+    typeof onPageChange === "function" &&
+    typeof onPageSizeChange === "function";
+
   return (
     <div className={`overflow-hidden rounded-xl border border-slate-200 bg-white ${className ?? ""}`}>
       <div className="overflow-x-auto">
@@ -124,6 +141,18 @@ export function DataTable<TData>({
         <div className="px-6 py-12 text-center">
           <p className="text-sm font-semibold text-slate-900">{emptyTitle}</p>
           <p className="mt-1 text-sm text-slate-500">{emptyDescription}</p>
+        </div>
+      ) : null}
+
+      {shouldRenderPagination ? (
+        <div className="border-t border-slate-200 p-4">
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+          />
         </div>
       ) : null}
     </div>

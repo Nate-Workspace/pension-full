@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 
 import type { Room, RoomType } from "@/data";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -119,17 +120,39 @@ export function RoomsManagement() {
   const router = useRouter();
   const { isAdmin, user } = useAuth();
   const { operationDay } = useOperationsData();
-  const [isLoading, setIsLoading] = useState(true);
   const [rooms, setRooms] = useState<RoomWithGuest[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const page = 1;
+  const pageSize = 10;
+  const search = "";
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [formState, setFormState] = useState<RoomFormState>(createDefaultFormState());
   const [formError, setFormError] = useState<string | null>(null);
   const canUpdateStatus = user?.role === "admin" || user?.role === "staff";
 
-  const fetchRooms = useCallback(async () => {
+  const { data: queriedRooms = [], isLoading } = useQuery({
+    queryKey: [
+      "rooms",
+      {
+        page,
+        pageSize,
+        search,
+        filters: {
+          status: statusFilter,
+          operationDay,
+        },
+      },
+    ],
+    queryFn: async () => {
     const params = new URLSearchParams();
+
+    params.set("page", String(page));
+    params.set("pageSize", String(pageSize));
+
+    if (search.trim().length > 0) {
+      params.set("search", search.trim());
+    }
 
     if (statusFilter !== "all") {
       params.set("status", statusFilter);
@@ -155,32 +178,13 @@ export function RoomsManagement() {
     }
 
     const payload = (await response.json()) as RoomWithGuest[];
-    setRooms(payload.map(mapApiRoomToUiRoom));
-  }, [operationDay, statusFilter]);
+      return payload.map(mapApiRoomToUiRoom);
+    },
+  });
 
   useEffect(() => {
-    let isMounted = true;
-
-    const load = async () => {
-      setIsLoading(true);
-
-      try {
-        await fetchRooms();
-      } catch (error) {
-        console.error(error);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void load();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [fetchRooms]);
+    setRooms(queriedRooms);
+  }, [queriedRooms]);
 
   const filteredRooms = useMemo(() => rooms, [rooms]);
 

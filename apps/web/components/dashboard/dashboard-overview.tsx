@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { useEffect } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Area,
   AreaChart,
@@ -168,77 +168,59 @@ async function getJson<T>(response: Response, fallback: string): Promise<T> {
 }
 
 export function DashboardOverview() {
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [trends, setTrends] = useState<DashboardTrends | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [operationDay] = useState<string>(() => toIsoDate(new Date()));
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["dashboard", { operationDay }],
+    queryFn: async () => {
+      const params = new URLSearchParams({ operationDay });
 
-  const fetchDashboard = useCallback(async () => {
-    const params = new URLSearchParams({ operationDay });
+      const [summaryResponse, trendsResponse, bookingsResponse, roomsResponse] = await Promise.all([
+        apiFetch(`/dashboard/summary?${params.toString()}`, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        }),
+        apiFetch(`/dashboard/trends?${params.toString()}`, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        }),
+        apiFetch("/bookings", {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        }),
+        apiFetch(`/rooms?${params.toString()}`, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        }),
+      ]);
 
-    const [summaryResponse, trendsResponse, bookingsResponse, roomsResponse] = await Promise.all([
-      apiFetch(`/dashboard/summary?${params.toString()}`, {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      }),
-      apiFetch(`/dashboard/trends?${params.toString()}`, {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      }),
-      apiFetch("/bookings", {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      }),
-      apiFetch(`/rooms?${params.toString()}`, {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      }),
-    ]);
+      const [summaryPayload, trendsPayload, bookingsPayload, roomsPayload] = await Promise.all([
+        getJson<DashboardSummary>(summaryResponse, "Failed to load dashboard summary."),
+        getJson<DashboardTrends>(trendsResponse, "Failed to load dashboard trends."),
+        getJson<Booking[]>(bookingsResponse, "Failed to load bookings."),
+        getJson<Room[]>(roomsResponse, "Failed to load rooms."),
+      ]);
 
-    const [summaryPayload, trendsPayload, bookingsPayload, roomsPayload] = await Promise.all([
-      getJson<DashboardSummary>(summaryResponse, "Failed to load dashboard summary."),
-      getJson<DashboardTrends>(trendsResponse, "Failed to load dashboard trends."),
-      getJson<Booking[]>(bookingsResponse, "Failed to load bookings."),
-      getJson<Room[]>(roomsResponse, "Failed to load rooms."),
-    ]);
+      return {
+        bookings: bookingsPayload,
+        rooms: roomsPayload,
+        summary: summaryPayload,
+        trends: trendsPayload,
+      };
+    },
+  });
 
-    setSummary(summaryPayload);
-    setTrends(trendsPayload);
-    setBookings(bookingsPayload);
-    setRooms(roomsPayload);
-  }, [operationDay]);
+  if (error) {
+    console.error(error);
+  }
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const load = async () => {
-      setIsLoading(true);
-
-      try {
-        await fetchDashboard();
-      } catch (error) {
-        if (isMounted) {
-          console.error(error);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void load();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [fetchDashboard]);
+  const bookings = data?.bookings ?? [];
+  const rooms = data?.rooms ?? [];
+  const summary = data?.summary ?? null;
+  const trends = data?.trends ?? null;
 
   const roomById = useMemo(() => new Map(rooms.map((room) => [room.id, room])), [rooms]);
 

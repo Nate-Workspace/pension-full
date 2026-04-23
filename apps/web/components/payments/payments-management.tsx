@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useEffect } from "react";
 import {
   Bar,
   BarChart,
@@ -13,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useQuery } from "@tanstack/react-query";
 
 import type { PaymentMethod } from "@/data";
 import { ChartWrapper, DataTable, MetricCard } from "@/components/ui";
@@ -22,11 +22,6 @@ type MethodFilter = "all" | PaymentMethod;
 
 type DailyPoint = {
   label: string;
-  value: number;
-};
-
-type MethodPoint = {
-  method: string;
   value: number;
 };
 
@@ -121,120 +116,94 @@ async function getErrorMessage(response: Response, fallback: string): Promise<st
 }
 
 export function PaymentsManagement() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [methodFilter, setMethodFilter] = useState<MethodFilter>("all");
   const statusFilter: "all" | PaymentStatus = "all";
 
-  const [paymentRows, setPaymentRows] = useState<PaymentsResponseRow[]>([]);
-  const [summaries, setSummaries] = useState<PaymentsSummaryResponse>({
-    operationDay: new Date().toISOString().slice(0, 10),
-    dailyCollected: 0,
-    monthlyCollected: 0,
-    outstandingBalances: 0,
-    unpaidCount: 0,
-    partialCount: 0,
-  });
-  const [dailyTrend, setDailyTrend] = useState<DailyPoint[]>([]);
-  const [methodTrend, setMethodTrend] = useState<MethodPoint[]>([]);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["payments"],
+    queryFn: async () => {
+      const [paymentsResponse, summaryResponse, trendsResponse] = await Promise.all([
+        apiFetch("/payments", {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        }),
+        apiFetch("/payments/summary", {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        }),
+        apiFetch("/payments/trends", {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        }),
+      ]);
 
-  useEffect(() => {
-    let isMounted = true;
+      if (!paymentsResponse.ok) {
+        throw new Error(await getErrorMessage(paymentsResponse, `Failed to load payments (${paymentsResponse.status}).`));
+      }
 
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
+      if (!summaryResponse.ok) {
+        throw new Error(await getErrorMessage(summaryResponse, `Failed to load payment summary (${summaryResponse.status}).`));
+      }
 
-      try {
-        const [paymentsResponse, summaryResponse, trendsResponse] = await Promise.all([
-          apiFetch("/payments", {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
-            cache: "no-store",
-          }),
-          apiFetch("/payments/summary", {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
-            cache: "no-store",
-          }),
-          apiFetch("/payments/trends", {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
-            cache: "no-store",
-          }),
-        ]);
+      if (!trendsResponse.ok) {
+        throw new Error(await getErrorMessage(trendsResponse, `Failed to load payment trends (${trendsResponse.status}).`));
+      }
 
-        if (!paymentsResponse.ok) {
-          throw new Error(await getErrorMessage(paymentsResponse, `Failed to load payments (${paymentsResponse.status}).`));
-        }
+      const [paymentsPayload, summaryPayload, trendsPayload] = await Promise.all([
+        paymentsResponse.json() as Promise<PaymentsResponseRow[]>,
+        summaryResponse.json() as Promise<PaymentsSummaryResponse>,
+        trendsResponse.json() as Promise<PaymentsTrendsResponse>,
+      ]);
 
-        if (!summaryResponse.ok) {
-          throw new Error(await getErrorMessage(summaryResponse, `Failed to load payment summary (${summaryResponse.status}).`));
-        }
-
-        if (!trendsResponse.ok) {
-          throw new Error(await getErrorMessage(trendsResponse, `Failed to load payment trends (${trendsResponse.status}).`));
-        }
-
-        const [paymentsPayload, summaryPayload, trendsPayload] = await Promise.all([
-          paymentsResponse.json() as Promise<PaymentsResponseRow[]>,
-          summaryResponse.json() as Promise<PaymentsSummaryResponse>,
-          trendsResponse.json() as Promise<PaymentsTrendsResponse>,
-        ]);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setPaymentRows(
-          [...paymentsPayload].sort((left, right) => {
-            const leftDate = left.paidAt ?? "";
-            const rightDate = right.paidAt ?? "";
-            return rightDate.localeCompare(leftDate);
-          }),
-        );
-        setSummaries(summaryPayload);
-        setDailyTrend(
-          [...trendsPayload.daily].sort((left, right) => {
+      return {
+        paymentRows: [...paymentsPayload].sort((left, right) => {
+          const leftDate = left.paidAt ?? "";
+          const rightDate = right.paidAt ?? "";
+          return rightDate.localeCompare(leftDate);
+        }),
+        summaries: summaryPayload,
+        dailyTrend: [...trendsPayload.daily]
+          .sort((left, right) => {
             return left.day.localeCompare(right.day);
-          }).map((entry) => ({
+          })
+          .map((entry) => ({
             label: entry.label,
             value: entry.value,
           })),
-        );
-        setMethodTrend(
-          trendsPayload.byMethod.map((entry) => ({
-            method: methodLabel(entry.method),
-            value: entry.value,
-          })),
-        );
-      } catch (error) {
-        if (isMounted) {
-          setLoadError(error instanceof Error ? error.message : "Unable to load payments data.");
-          setPaymentRows([]);
-          setDailyTrend([]);
-          setMethodTrend([]);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
+        methodTrend: trendsPayload.byMethod.map((entry) => ({
+          method: methodLabel(entry.method),
+          value: entry.value,
+        })),
+      };
+    },
+  });
 
-    void load();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const loadError = error instanceof Error ? error.message : error ? "Unable to load payments data." : null;
+  const paymentRows = useMemo(() => data?.paymentRows ?? [], [data]);
+  const summaries = useMemo(
+    () =>
+      data?.summaries ?? {
+        operationDay: new Date().toISOString().slice(0, 10),
+        dailyCollected: 0,
+        monthlyCollected: 0,
+        outstandingBalances: 0,
+        unpaidCount: 0,
+        partialCount: 0,
+      },
+    [data],
+  );
+  const dailyTrend = useMemo(() => data?.dailyTrend ?? [], [data]);
+  const methodTrend = useMemo(() => data?.methodTrend ?? [], [data]);
 
   const filteredRows = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();

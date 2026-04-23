@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Bar,
   BarChart,
@@ -99,82 +99,61 @@ function toNumber(
 }
 
 export function ReportsManagement() {
-  const [isLoading, setIsLoading] = useState(true);
   const [startDate, setStartDate] = useState("2026-03-20");
   const [endDate, setEndDate] = useState("2026-04-02");
   const [formError, setFormError] = useState<string | null>(null);
 
-  const [occupancySeries, setOccupancySeries] = useState<OccupancyPoint[]>([]);
-  const [revenueByRoomType, setRevenueByRoomType] = useState<RoomTypeRevenuePoint[]>([]);
-  const [mostBookedRooms, setMostBookedRooms] = useState<MostBookedRoomPoint[]>([]);
-  const [peakBookingDays, setPeakBookingDays] = useState<PeakDayPoint[]>([]);
-  const [summaries, setSummaries] = useState({
+  const validRange = startDate <= endDate;
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["reports", { startDate, endDate }],
+    enabled: validRange,
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        startDate,
+        endDate,
+      });
+
+      const response = await apiFetch(`/reports/analytics?${params.toString()}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, `Failed to load reports analytics (${response.status}).`));
+      }
+
+      return (await response.json()) as ReportsAnalyticsResponse;
+    },
+  });
+
+  useEffect(() => {
+    if (!validRange) {
+      return;
+    }
+
+    if (error) {
+      console.error(error);
+      setFormError(error instanceof Error ? error.message : "Unable to load reports.");
+      return;
+    }
+
+    setFormError(null);
+  }, [error, validRange]);
+
+  const occupancySeries = data?.occupancySeries ?? [];
+  const revenueByRoomType = data?.revenueByRoomType ?? [];
+  const mostBookedRooms = data?.mostBookedRooms ?? [];
+  const peakBookingDays = data?.peakBookingDays ?? [];
+  const summaries = data?.summaries ?? {
     averageOccupancy: 0,
     totalRevenue: 0,
     peakDay: { day: "-", count: 0 },
     topRoom: { room: "-", count: 0 },
-  });
-
-  const fetchAnalytics = useCallback(async () => {
-    const params = new URLSearchParams({
-      startDate,
-      endDate,
-    });
-
-    const response = await apiFetch(`/reports/analytics?${params.toString()}`, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      throw new Error(await getErrorMessage(response, `Failed to load reports analytics (${response.status}).`));
-    }
-
-    const payload = (await response.json()) as ReportsAnalyticsResponse;
-    setOccupancySeries(payload.occupancySeries);
-    setRevenueByRoomType(payload.revenueByRoomType);
-    setMostBookedRooms(payload.mostBookedRooms);
-    setPeakBookingDays(payload.peakBookingDays);
-    setSummaries(payload.summaries);
-  }, [endDate, startDate]);
-
-  const validRange = startDate <= endDate;
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const load = async () => {
-      if (!validRange) {
-        setFormError("End date must be greater than or equal to start date.");
-        return;
-      }
-
-      setFormError(null);
-      setIsLoading(true);
-
-      try {
-        await fetchAnalytics();
-      } catch (error) {
-        if (isMounted) {
-          console.error(error);
-          setFormError(error instanceof Error ? error.message : "Unable to load reports.");
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void load();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [fetchAnalytics, validRange]);
+  };
 
   return (
     <div className="space-y-6">
