@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationMetaSchema, paginationQuerySchema } from "./pagination";
 
 export const bookingStatusSchema = z.enum(["confirmed", "pending", "cancelled"]);
 
@@ -36,7 +37,7 @@ export const createBookingSchema = z.object({
 
 export const updateBookingSchema = createBookingSchema;
 
-export const listBookingsQuerySchema = z.object({
+export const listBookingsQuerySchema = paginationQuerySchema.extend({
 	status: z.union([z.literal("all"), bookingStatusSchema]).optional(),
 	search: z.string().trim().min(1).optional(),
 });
@@ -62,6 +63,11 @@ export const bookingResponseSchema = z.object({
 	source: bookingSourceSchema,
 });
 
+export const bookingListResponseSchema = z.object({
+	data: z.array(bookingResponseSchema),
+	meta: paginationMetaSchema,
+});
+
 export type BookingGuest = z.infer<typeof bookingGuestSchema>;
 export type BookingStatusValue = z.infer<typeof bookingStatusSchema>;
 export type BookingSource = z.infer<typeof bookingSourceSchema>;
@@ -70,3 +76,4 @@ export type CreateBookingInput = z.infer<typeof createBookingSchema>;
 export type UpdateBookingInput = z.infer<typeof updateBookingSchema>;
 export type ListBookingsQueryInput = z.infer<typeof listBookingsQuerySchema>;
 export type BookingResponse = z.infer<typeof bookingResponseSchema>;
+export type BookingListResponse = z.infer<typeof bookingListResponseSchema>;

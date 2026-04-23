@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { db, bookings as bookingsTable, payments as paymentsTable, rooms as roomsTable } from '@repo/db';
+import {
+  listPaymentsQuerySchema,
+  type ListPaymentsQueryInput,
+  type PaymentListResponse,
+} from '@repo/contracts';
 
 type BookingRecord = typeof bookingsTable.$inferSelect;
 type PaymentRecord = typeof paymentsTable.$inferSelect;
@@ -9,7 +14,12 @@ type PaymentMethod = 'cash' | 'mobile_money';
 type PaymentStatus = 'paid' | 'partial' | 'unpaid';
 
 type ListPaymentsQuery = {
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  order?: 'asc' | 'desc';
   method?: string;
+  status?: string;
   search?: string;
 };
 
@@ -24,8 +34,8 @@ type TrendsQuery = {
 
 @Injectable()
 export class PaymentsService {
-  async listPayments(query: unknown) {
-    const parsed = this.parseListQuery(query);
+  async listPayments(query: unknown): Promise<PaymentListResponse> {
+    const parsed = this.parseSchema<ListPaymentsQueryInput>(listPaymentsQuerySchema, query);
 
     const [paymentRows, bookingRows, roomRows] = await Promise.all([
       db.select().from(paymentsTable),
@@ -42,7 +52,7 @@ export class PaymentsService {
     const paidByBooking = this.aggregatePaidByBooking(payments);
     const searchTerm = parsed.search?.toLowerCase();
 
-    return payments
+    const responses = payments
       .filter((payment) => !parsed.method || payment.method === parsed.method)
       .map((payment) => {
         const booking = bookingById.get(payment.bookingId);
@@ -68,6 +78,7 @@ export class PaymentsService {
           outstanding: Math.max(bookingTotal - paidTotal, 0),
         };
       })
+      .filter((payment) => !parsed.status || parsed.status === 'all' || payment.status === parsed.status)
       .filter((payment) => {
         if (!searchTerm) {
           return true;
@@ -80,11 +91,24 @@ export class PaymentsService {
           payment.roomNumber.toLowerCase().includes(searchTerm)
         );
       })
-      .sort((left, right) => {
-        const leftDate = left.paidAt ?? '';
-        const rightDate = right.paidAt ?? '';
-        return rightDate.localeCompare(leftDate);
-      });
+      .sort((left, right) => this.comparePayments(left, right, parsed.sortBy, parsed.order));
+
+    const paginate = parsed.page !== undefined || parsed.pageSize !== undefined;
+    const pageSize = parsed.pageSize ?? 10;
+    const page = parsed.page ?? 1;
+    const total = responses.length;
+    const totalPages = paginate ? (total > 0 ? Math.ceil(total / pageSize) : 0) : total > 0 ? 1 : 0;
+    const startIndex = (page - 1) * pageSize;
+
+    return {
+      data: paginate ? responses.slice(startIndex, startIndex + pageSize) : responses,
+      meta: {
+        page,
+        pageSize: paginate ? pageSize : total > 0 ? total : 1,
+        total,
+        totalPages,
+      },
+    };
   }
 
   async getSummary(query: unknown) {
@@ -193,17 +217,6 @@ export class PaymentsService {
     };
   }
 
-  private parseListQuery(query: unknown): { method?: PaymentMethod; search?: string } {
-    const record = this.toRecord(query);
-    const method = this.optionalPaymentMethod(record.method);
-    const search = this.optionalTrimmedString(record.search);
-
-    return {
-      method,
-      search,
-    };
-  }
-
   private parseDateQuery(query: unknown): DateQuery {
     const record = this.toRecord(query);
     const operationDay = this.optionalIsoDate(record.operationDay);
@@ -307,6 +320,48 @@ export class PaymentsService {
     }
 
     return value as Record<string, unknown>;
+  }
+
+  private parseSchema<T>(
+    schema: { safeParse(value: unknown): unknown },
+    value: unknown,
+  ): T {
+    const result = schema.safeParse(value) as {
+      success: boolean;
+      data?: T;
+      error?: { issues: Array<{ message: string }> };
+    };
+
+    if (!result.success) {
+      const error = result.error as { issues: Array<{ message: string }> } | undefined;
+      throw new BadRequestException(error?.issues[0]?.message ?? 'Invalid request payload.');
+    }
+
+    return result.data as T;
+  }
+
+  private comparePayments(
+    left: { paidAt?: string; method: PaymentMethod; status: PaymentStatus; amount: number; bookingCode: string; guestName: string; roomNumber: string; reference: string },
+    right: { paidAt?: string; method: PaymentMethod; status: PaymentStatus; amount: number; bookingCode: string; guestName: string; roomNumber: string; reference: string },
+    sortBy?: ListPaymentsQueryInput['sortBy'],
+    order: ListPaymentsQueryInput['order'] = 'desc',
+  ): number {
+    let result = 0;
+
+    if (!sortBy || sortBy === 'paidAt') {
+      result = (right.paidAt ?? '').localeCompare(left.paidAt ?? '');
+    } else if (sortBy === 'amount' || sortBy === 'outstanding') {
+      result = left[sortBy] - right[sortBy];
+    } else if (sortBy === 'method' || sortBy === 'status' || sortBy === 'reference' || sortBy === 'bookingCode' || sortBy === 'guestName' || sortBy === 'roomNumber') {
+      result = String(left[sortBy]).localeCompare(String(right[sortBy]), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+    } else {
+      throw new BadRequestException('Invalid sort field.');
+    }
+
+    return order === 'desc' ? -result : result;
   }
 
   private parseIsoDate(value: string): Date {

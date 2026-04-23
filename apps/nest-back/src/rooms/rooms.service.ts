@@ -7,6 +7,11 @@ import {
 import { eq, ilike } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { db, bookings as bookingsTable, rooms as roomsTable } from '@repo/db';
+import {
+  listRoomsQuerySchema,
+  type ListRoomsQueryInput,
+  type RoomListResponse,
+} from '@repo/contracts';
 
 type RoomRecord = typeof roomsTable.$inferSelect;
 type BookingRecord = typeof bookingsTable.$inferSelect;
@@ -56,16 +61,13 @@ type RoomStatusUpdateInput = {
   status: RoomStatus;
 };
 
-type RoomListQuery = {
-  status?: string;
-  operationDay?: string;
-};
+type RoomListQuery = ListRoomsQueryInput;
 
 @Injectable()
 export class RoomsService {
-  async listRooms(query: RoomListQuery): Promise<RoomResponseRow[]> {
-    const { status, operationDay } = this.normalizeQuery(query);
-    const resolvedOperationDay = operationDay ?? this.getCurrentOperationDay();
+  async listRooms(query: RoomListQuery): Promise<RoomListResponse> {
+    const parsed = this.parseSchema<ListRoomsQueryInput>(listRoomsQuerySchema, query);
+    const resolvedOperationDay = parsed.operationDay ?? this.getCurrentOperationDay();
 
     const roomRows = (await db.select().from(roomsTable)) as RoomRecord[];
     const bookingRows = (await db
@@ -77,27 +79,57 @@ export class RoomsService {
       resolvedOperationDay,
     );
 
+    const searchTerm = parsed.search?.toLowerCase();
+
     const responses = roomRows
       .map((room) =>
         this.toRoomResponse(room, activeBookingByRoomId.get(room.id) ?? null),
       )
-      .sort((left, right) => {
-        const floorDiff = left.floor - right.floor;
-        if (floorDiff !== 0) {
-          return floorDiff;
+      .filter((room) => {
+        if (parsed.status && parsed.status !== 'all' && room.status !== parsed.status) {
+          return false;
         }
 
-        return left.number.localeCompare(right.number, undefined, {
-          numeric: true,
-          sensitivity: 'base',
-        });
+        if (parsed.type && room.type !== parsed.type) {
+          return false;
+        }
+
+        if (!searchTerm) {
+          return true;
+        }
+
+        const currentGuest = room.currentGuest;
+        const assignedTo = room.assignedTo?.toLowerCase() ?? '';
+
+        return (
+          room.name.toLowerCase().includes(searchTerm) ||
+          room.number.toLowerCase().includes(searchTerm) ||
+          assignedTo.includes(searchTerm) ||
+          currentGuest?.name.toLowerCase().includes(searchTerm) ||
+          currentGuest?.phone?.toLowerCase().includes(searchTerm) ||
+          currentGuest?.idNumber?.toLowerCase().includes(searchTerm)
+        );
+      })
+      .sort((left, right) => {
+        return this.compareRooms(left, right, parsed.sortBy, parsed.order);
       });
 
-    if (!status || status === 'all') {
-      return responses;
-    }
+    const paginate = parsed.page !== undefined || parsed.pageSize !== undefined;
+    const pageSize = parsed.pageSize ?? 10;
+    const page = parsed.page ?? 1;
+    const total = responses.length;
+    const totalPages = paginate ? (total > 0 ? Math.ceil(total / pageSize) : 0) : total > 0 ? 1 : 0;
+    const startIndex = (page - 1) * pageSize;
 
-    return responses.filter((room) => room.status === status);
+    return {
+      data: paginate ? responses.slice(startIndex, startIndex + pageSize) : responses,
+      meta: {
+        page,
+        pageSize: paginate ? pageSize : total > 0 ? total : 1,
+        total,
+        totalPages,
+      },
+    };
   }
 
   async createRoom(body: unknown): Promise<RoomResponseRow> {
@@ -440,6 +472,66 @@ export class RoomsService {
 
   private createRoomId(number: string): string {
     return `room-${number.toLowerCase()}-${randomUUID().slice(0, 8)}`;
+  }
+
+  private compareRooms(
+    left: RoomResponseRow,
+    right: RoomResponseRow,
+    sortBy?: ListRoomsQueryInput['sortBy'],
+    order: ListRoomsQueryInput['order'] = 'asc',
+  ): number {
+    let result = 0;
+
+    if (!sortBy) {
+      const floorDiff = left.floor - right.floor;
+
+      result = floorDiff !== 0
+        ? floorDiff
+        : left.number.localeCompare(right.number, undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          });
+    } else if (sortBy === 'floor') {
+      result = left.floor - right.floor;
+    } else if (sortBy === 'number' || sortBy === 'name' || sortBy === 'assignedTo') {
+      const leftValue = sortBy === 'assignedTo' ? left.assignedTo ?? '' : left[sortBy];
+      const rightValue = sortBy === 'assignedTo' ? right.assignedTo ?? '' : right[sortBy];
+
+      result = leftValue.localeCompare(rightValue, undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+    } else if (sortBy === 'type' || sortBy === 'status') {
+      const rank = sortBy === 'type'
+        ? { single: 0, double: 1, vip: 2 }
+        : { available: 0, occupied: 1, cleaning: 2, maintenance: 3 };
+
+      result = rank[left[sortBy]] - rank[right[sortBy]];
+    } else if (sortBy === 'capacity' || sortBy === 'price') {
+      result = left[sortBy] - right[sortBy];
+    } else {
+      throw new BadRequestException('Invalid sort field.');
+    }
+
+    return order === 'desc' ? -result : result;
+  }
+
+  private parseSchema<T>(
+    schema: { safeParse(value: unknown): unknown },
+    value: unknown,
+  ): T {
+    const result = schema.safeParse(value) as {
+      success: boolean;
+      data?: T;
+      error?: { issues: Array<{ message: string }> };
+    };
+
+    if (!result.success) {
+      const error = result.error as { issues: Array<{ message: string }> } | undefined;
+      throw new BadRequestException(error?.issues[0]?.message ?? 'Invalid request payload.');
+    }
+
+    return result.data as T;
   }
 
   private getCurrentOperationDay(): string {

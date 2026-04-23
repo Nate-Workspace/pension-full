@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationMetaSchema, paginationQuerySchema } from "./pagination";
 
 export const roomTypeSchema = z.enum(["single", "double", "vip"]);
 
@@ -39,9 +40,11 @@ export const roomStatusUpdateSchema = z.object({
   status: roomStatusSchema,
 });
 
-export const listRoomsQuerySchema = z.object({
+export const listRoomsQuerySchema = paginationQuerySchema.extend({
   status: roomFilterStatusSchema.optional(),
   operationDay: z.iso.date().optional(),
+  search: z.string().trim().min(1).optional(),
+  type: roomTypeSchema.optional(),
 });
 
 export const roomResponseSchema = z.object({
@@ -58,6 +61,11 @@ export const roomResponseSchema = z.object({
   currentGuest: roomCurrentGuestSchema.optional(),
 });
 
+export const roomListResponseSchema = z.object({
+  data: z.array(roomResponseSchema),
+  meta: paginationMetaSchema,
+});
+
 export type RoomTypeValue = z.infer<typeof roomTypeSchema>;
 export type RoomManualStatus = z.infer<typeof roomManualStatusSchema>;
 export type RoomStatusValue = z.infer<typeof roomStatusSchema>;
@@ -69,3 +77,4 @@ export type UpdateRoomInput = z.infer<typeof updateRoomSchema>;
 export type RoomStatusUpdateInput = z.infer<typeof roomStatusUpdateSchema>;
 export type ListRoomsQueryInput = z.infer<typeof listRoomsQuerySchema>;
 export type RoomResponse = z.infer<typeof roomResponseSchema>;
+export type RoomListResponse = z.infer<typeof roomListResponseSchema>;

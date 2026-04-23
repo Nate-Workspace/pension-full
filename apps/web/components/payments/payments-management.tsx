@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Bar,
   BarChart,
@@ -62,6 +63,48 @@ type ApiErrorPayload = {
   message?: string | string[];
 };
 
+type PaginatedResponse<T> = {
+  data: T[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+function isPaginatedResponse<T>(value: unknown): value is PaginatedResponse<T> {
+  return typeof value === "object" && value !== null && "data" in value && "meta" in value;
+}
+
+function parsePositiveInteger(value: string | null, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function buildQueryString(params: Record<string, string | number | undefined>): string {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === "") {
+      return;
+    }
+
+    searchParams.set(key, String(value));
+  });
+
+  return searchParams.toString();
+}
+
 function formatMoney(value: number): string {
   return `${value.toLocaleString("en-US")} Birr`;
 }
@@ -116,15 +159,26 @@ async function getErrorMessage(response: Response, fallback: string): Promise<st
 }
 
 export function PaymentsManagement() {
-  const [query, setQuery] = useState("");
-  const [methodFilter, setMethodFilter] = useState<MethodFilter>("all");
-  const statusFilter: "all" | PaymentStatus = "all";
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const query = searchParams.get("search")?.trim() ?? "";
+  const methodFilter = (searchParams.get("method") as MethodFilter | null) ?? "all";
+  const page = parsePositiveInteger(searchParams.get("page"), 1);
+  const pageSize = parsePositiveInteger(searchParams.get("pageSize"), 10);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["payments"],
+    queryKey: ["payments", { query, methodFilter, page, pageSize }],
     queryFn: async () => {
+      const params = buildQueryString({
+        page,
+        pageSize,
+        search: query.length > 0 ? query : undefined,
+        method: methodFilter !== "all" ? methodFilter : undefined,
+      });
+
       const [paymentsResponse, summaryResponse, trendsResponse] = await Promise.all([
-        apiFetch("/payments", {
+        apiFetch(`/payments${params.length > 0 ? `?${params}` : ""}`, {
           method: "GET",
           headers: {
             Accept: "application/json",
@@ -160,17 +214,36 @@ export function PaymentsManagement() {
       }
 
       const [paymentsPayload, summaryPayload, trendsPayload] = await Promise.all([
-        paymentsResponse.json() as Promise<PaymentsResponseRow[]>,
+        paymentsResponse.json() as Promise<PaginatedResponse<PaymentsResponseRow> | PaymentsResponseRow[]>,
         summaryResponse.json() as Promise<PaymentsSummaryResponse>,
         trendsResponse.json() as Promise<PaymentsTrendsResponse>,
       ]);
 
+      const paymentRows = Array.isArray(paymentsPayload)
+        ? paymentsPayload
+        : isPaginatedResponse<PaymentsResponseRow>(paymentsPayload)
+          ? paymentsPayload.data
+          : [];
+
+      const meta = Array.isArray(paymentsPayload)
+        ? {
+            page,
+            pageSize,
+            total: paymentsPayload.length,
+            totalPages: paymentsPayload.length > 0 ? 1 : 0,
+          }
+        : isPaginatedResponse<PaymentsResponseRow>(paymentsPayload)
+          ? paymentsPayload.meta
+          : {
+              page,
+              pageSize,
+              total: 0,
+              totalPages: 0,
+            };
+
       return {
-        paymentRows: [...paymentsPayload].sort((left, right) => {
-          const leftDate = left.paidAt ?? "";
-          const rightDate = right.paidAt ?? "";
-          return rightDate.localeCompare(leftDate);
-        }),
+        paymentRows,
+        meta,
         summaries: summaryPayload,
         dailyTrend: [...trendsPayload.daily]
           .sort((left, right) => {
@@ -205,31 +278,21 @@ export function PaymentsManagement() {
   const dailyTrend = useMemo(() => data?.dailyTrend ?? [], [data]);
   const methodTrend = useMemo(() => data?.methodTrend ?? [], [data]);
 
-  const filteredRows = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+  const updateUrlState = (nextParams: Record<string, string | number | undefined>) => {
+    const params = new URLSearchParams(searchParams.toString());
 
-    return paymentRows.filter((row) => {
-      if (methodFilter !== "all" && row.method !== methodFilter) {
-        return false;
+    Object.entries(nextParams).forEach(([key, value]) => {
+      if (value === undefined || value === "") {
+        params.delete(key);
+        return;
       }
 
-      if (statusFilter !== "all" && row.status !== statusFilter) {
-        return false;
-      }
-
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      return (
-        row.reference.toLowerCase().includes(normalizedQuery) ||
-        row.bookingCode.toLowerCase().includes(normalizedQuery) ||
-        row.guestName.toLowerCase().includes(normalizedQuery) ||
-        paymentStatusLabel(row.status).toLowerCase().includes(normalizedQuery) ||
-        row.roomNumber.toLowerCase().includes(normalizedQuery)
-      );
+      params.set(key, String(value));
     });
-  }, [methodFilter, paymentRows, query, statusFilter]);
+
+    const nextQuery = params.toString();
+    router.replace(nextQuery.length > 0 ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  };
 
   return (
     <div className="space-y-6">
@@ -312,14 +375,14 @@ export function PaymentsManagement() {
           <input
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => updateUrlState({ search: event.target.value, page: 1 })}
             placeholder="Search by reference, booking, guest or room"
             className="h-10 w-full max-w-sm rounded-md border border-slate-200 px-3 text-sm text-slate-700"
           />
 
           <select
             value={methodFilter}
-            onChange={(event) => setMethodFilter(event.target.value as MethodFilter)}
+            onChange={(event) => updateUrlState({ method: event.target.value, page: 1 })}
             className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
           >
             <option value="all">All Methods</option>
@@ -328,7 +391,7 @@ export function PaymentsManagement() {
           </select>
         </div>
 
-        <DataTable<(typeof filteredRows)[number]>
+        <DataTable<(typeof paymentRows)[number]>
           columns={[
             {
               key: "reference",
@@ -391,12 +454,17 @@ export function PaymentsManagement() {
               render: (row) => (row.paidAt ? toDayLabel(row.paidAt.slice(0, 10)) : "Pending"),
             },
           ]}
-          data={filteredRows}
+          data={paymentRows}
           getRowKey={(row) => row.id}
           getRowClassName={(row) => (row.status === "unpaid" ? "bg-rose-50/60" : "")}
           isLoading={isLoading}
           emptyTitle="No payment records"
           emptyDescription="Try changing your search query or method filter."
+          page={page}
+          pageSize={pageSize}
+          totalPages={data?.meta.totalPages ?? 0}
+          onPageChange={(nextPage) => updateUrlState({ page: nextPage })}
+          onPageSizeChange={(nextPageSize) => updateUrlState({ pageSize: nextPageSize, page: 1 })}
         />
       </section>
     </div>

@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
 import type { Room, RoomType } from "@/data";
@@ -21,6 +20,48 @@ type RoomWithGuest = Room & {
     idNumber?: string;
   };
 };
+
+type PaginatedResponse<T> = {
+  data: T[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+function isPaginatedResponse<T>(value: unknown): value is PaginatedResponse<T> {
+  return typeof value === "object" && value !== null && "data" in value && "meta" in value;
+}
+
+function parsePositiveInteger(value: string | null, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function buildQueryString(params: Record<string, string | number | undefined>): string {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === "") {
+      return;
+    }
+
+    searchParams.set(key, String(value));
+  });
+
+  return searchParams.toString();
+}
 
 type RoomFormState = {
   id?: string;
@@ -118,23 +159,65 @@ function validateRoomForm(formState: RoomFormState, existingRooms: Room[]): stri
 
 export function RoomsManagement() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isAdmin, user } = useAuth();
   const { operationDay } = useOperationsData();
-  const [rooms, setRooms] = useState<RoomWithGuest[]>([]);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const page = 1;
-  const pageSize = 10;
-  const search = "";
+  const statusFilter = (searchParams.get("status") as StatusFilter | null) ?? "all";
+  const search = searchParams.get("search")?.trim() ?? "";
+  const page = parsePositiveInteger(searchParams.get("page"), 1);
+  const pageSize = parsePositiveInteger(searchParams.get("pageSize"), 10);
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [formState, setFormState] = useState<RoomFormState>(createDefaultFormState());
   const [formError, setFormError] = useState<string | null>(null);
   const canUpdateStatus = user?.role === "admin" || user?.role === "staff";
 
-  const { data: queriedRooms = [], isLoading } = useQuery({
+  const roomsQuery = useQuery({
     queryKey: [
       "rooms",
       {
+        scope: "all",
+        status: statusFilter,
+        search,
+        operationDay,
+      },
+    ],
+    queryFn: async () => {
+      const params = buildQueryString({
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        search: search.length > 0 ? search : undefined,
+        operationDay,
+      });
+
+      const response = await apiFetch(`/rooms${params.length > 0 ? `?${params}` : ""}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load rooms (${response.status}).`);
+      }
+
+      const payload = (await response.json()) as PaginatedResponse<RoomWithGuest> | RoomWithGuest[];
+      const rows = Array.isArray(payload)
+        ? payload
+        : isPaginatedResponse<RoomWithGuest>(payload)
+          ? payload.data
+          : [];
+
+      return rows.map(mapApiRoomToUiRoom);
+    },
+  });
+
+  const pagedRoomsQuery = useQuery({
+    queryKey: [
+      "rooms",
+      {
+        scope: "page",
         page,
         pageSize,
         search,
@@ -145,48 +228,85 @@ export function RoomsManagement() {
       },
     ],
     queryFn: async () => {
-    const params = new URLSearchParams();
+      const params = buildQueryString({
+        page,
+        pageSize,
+        search: search.length > 0 ? search : undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        operationDay,
+      });
 
-    params.set("page", String(page));
-    params.set("pageSize", String(pageSize));
+      const endpoint = `/rooms?${params}`;
 
-    if (search.trim().length > 0) {
-      params.set("search", search.trim());
-    }
+      const response = await apiFetch(endpoint, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
 
-    if (statusFilter !== "all") {
-      params.set("status", statusFilter);
-    }
+      if (!response.ok) {
+        throw new Error(`Failed to load rooms (${response.status}).`);
+      }
 
-    if (operationDay) {
-      params.set("operationDay", operationDay);
-    }
+      const payload = (await response.json()) as PaginatedResponse<RoomWithGuest> | RoomWithGuest[];
 
-    const query = params.toString();
-    const endpoint = `/rooms${query.length > 0 ? `?${query}` : ""}`;
+      if (Array.isArray(payload)) {
+        return {
+          data: payload,
+          meta: {
+            page,
+            pageSize,
+            total: payload.length,
+            totalPages: payload.length > 0 ? 1 : 0,
+          },
+        };
+      }
 
-    const response = await apiFetch(endpoint, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to load rooms (${response.status}).`);
-    }
-
-    const payload = (await response.json()) as RoomWithGuest[];
-      return payload.map(mapApiRoomToUiRoom);
+      return isPaginatedResponse<RoomWithGuest>(payload)
+        ? payload
+        : {
+            data: [],
+            meta: {
+              page,
+              pageSize,
+              total: 0,
+              totalPages: 0,
+            },
+          };
     },
   });
 
-  useEffect(() => {
-    setRooms(queriedRooms);
-  }, [queriedRooms]);
+  const rooms = useMemo(() => roomsQuery.data ?? [], [roomsQuery.data]);
+  const pageRooms = useMemo(
+    () => (pagedRoomsQuery.data?.data ?? []).map(mapApiRoomToUiRoom),
+    [pagedRoomsQuery.data],
+  );
+  const pageMeta = pagedRoomsQuery.data?.meta;
+  const isLoading = roomsQuery.isLoading || pagedRoomsQuery.isLoading;
 
-  const filteredRooms = useMemo(() => rooms, [rooms]);
+  const updateUrlState = (nextParams: Record<string, string | number | undefined>) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    Object.entries(nextParams).forEach(([key, value]) => {
+      if (value === undefined || value === "") {
+        params.delete(key);
+        return;
+      }
+
+      params.set(key, String(value));
+    });
+
+    const nextQuery = params.toString();
+    router.replace(nextQuery.length > 0 ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  };
+
+  const refreshRooms = async () => {
+    await Promise.all([roomsQuery.refetch(), pagedRoomsQuery.refetch()]);
+  };
+
+  const filteredRooms = pageRooms;
 
   const metrics = useMemo(() => {
     const occupiedCount = rooms.filter((room) => room.status === "occupied").length;
@@ -219,21 +339,6 @@ export function RoomsManagement() {
   };
 
   const handleStatusChange = (roomId: string, status: RoomStatus) => {
-    const previousRooms = rooms;
-
-    setRooms((currentRooms) =>
-      currentRooms.map((room) => {
-        if (room.id !== roomId) {
-          return room;
-        }
-
-        return {
-          ...room,
-          status,
-        };
-      }),
-    );
-
     void (async () => {
       try {
         const response = await apiFetch(`/rooms/${roomId}/status`, {
@@ -253,14 +358,9 @@ export function RoomsManagement() {
           throw new Error(`Failed to update room status (${response.status}).`);
         }
 
-        const updatedRoom = mapApiRoomToUiRoom((await response.json()) as RoomWithGuest);
-
-        setRooms((currentRooms) =>
-          currentRooms.map((room) => (room.id === roomId ? updatedRoom : room)),
-        );
+        await refreshRooms();
       } catch (error) {
         console.error(error);
-        setRooms(previousRooms);
       }
     })();
   };
@@ -307,10 +407,8 @@ export function RoomsManagement() {
             throw new Error(`Failed to create room (${createResponse.status}).`);
           }
 
-          const createdRoom = mapApiRoomToUiRoom((await createResponse.json()) as RoomWithGuest);
-          setRooms((currentRooms) => [...currentRooms, createdRoom]);
+          await refreshRooms();
         } else {
-          const existingRoom = rooms.find((room) => room.id === formState.id);
           const patchResponse = await apiFetch(`/rooms/${formState.id}`, {
             method: "PATCH",
             headers: {
@@ -335,9 +433,15 @@ export function RoomsManagement() {
             throw new Error(`Failed to update room (${patchResponse.status}).`);
           }
 
-          let updatedRoom = mapApiRoomToUiRoom((await patchResponse.json()) as RoomWithGuest);
+          if (!patchResponse.ok) {
+            if (patchResponse.status === 403) {
+              throw new Error("You do not have permission");
+            }
 
-          if (existingRoom && existingRoom.status !== formState.status) {
+            throw new Error(`Failed to update room (${patchResponse.status}).`);
+          }
+
+          if (formState.status) {
             const statusResponse = await apiFetch(`/rooms/${formState.id}/status`, {
               method: "PATCH",
               headers: {
@@ -354,13 +458,9 @@ export function RoomsManagement() {
 
               throw new Error(`Failed to update room status (${statusResponse.status}).`);
             }
-
-            updatedRoom = mapApiRoomToUiRoom((await statusResponse.json()) as RoomWithGuest);
           }
 
-          setRooms((currentRooms) =>
-            currentRooms.map((room) => (room.id === formState.id ? updatedRoom : room)),
-          );
+          await refreshRooms();
         }
 
         setIsDrawerOpen(false);
@@ -499,13 +599,21 @@ export function RoomsManagement() {
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-4 flex flex-wrap items-center gap-3">
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => updateUrlState({ search: event.target.value, page: 1 })}
+            placeholder="Search by room number, guest, or assignee"
+            className="h-10 w-full max-w-sm rounded-md border border-slate-200 px-3 text-sm text-slate-700"
+          />
+
           <label htmlFor="status-filter" className="text-sm font-medium text-slate-700">
             Filter by status
           </label>
           <select
             id="status-filter"
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+            onChange={(event) => updateUrlState({ status: event.target.value, page: 1 })}
             className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
           >
             <option value="all">All statuses</option>
@@ -526,6 +634,11 @@ export function RoomsManagement() {
           isLoading={isLoading}
           emptyTitle="No rooms for this status"
           emptyDescription="Try selecting another status or add a new room."
+          page={page}
+          pageSize={pageSize}
+          totalPages={pageMeta?.totalPages ?? 0}
+          onPageChange={(nextPage) => updateUrlState({ page: nextPage })}
+          onPageSizeChange={(nextPageSize) => updateUrlState({ pageSize: nextPageSize, page: 1 })}
         />
       </section>
 

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
 import type { Booking, BookingStatus, Room } from "@/data";
@@ -48,6 +49,48 @@ type CalendarReservation = {
 type ApiErrorPayload = {
   message?: string | string[];
 };
+
+type PaginatedResponse<T> = {
+  data: T[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+function isPaginatedResponse<T>(value: unknown): value is PaginatedResponse<T> {
+  return typeof value === "object" && value !== null && "data" in value && "meta" in value;
+}
+
+function parsePositiveInteger(value: string | null, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function buildQueryString(params: Record<string, string | number | undefined>): string {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === "") {
+      return;
+    }
+
+    searchParams.set(key, String(value));
+  });
+
+  return searchParams.toString();
+}
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
@@ -190,12 +233,14 @@ function byId<T extends { id: string }>(items: T[]): Map<string, T> {
 }
 
 export function BookingsManagement() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { operationDay } = useOperationsData();
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<BookingFilter>("all");
+  const search = searchParams.get("search")?.trim() ?? "";
+  const statusFilter = (searchParams.get("status") as BookingFilter | null) ?? "all";
+  const page = parsePositiveInteger(searchParams.get("page"), 1);
+  const pageSize = parsePositiveInteger(searchParams.get("pageSize"), 10);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formState, setFormState] = useState<BookingFormState>(() => createFormDefaults([], operationDay));
@@ -207,10 +252,12 @@ export function BookingsManagement() {
     return startOfMonthUTC(day.getUTCFullYear(), day.getUTCMonth());
   });
 
-  const { data: queryData, isLoading, error, refetch } = useQuery({
-    queryKey: ["bookings", { operationDay }],
+  const roomsQuery = useQuery({
+    queryKey: ["rooms", { scope: "all", operationDay }],
     queryFn: async () => {
-      const bookingsResponse = await apiFetch("/bookings", {
+      const params = buildQueryString({ operationDay });
+
+      const response = await apiFetch(`/rooms${params.length > 0 ? `?${params}` : ""}`, {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -218,83 +265,139 @@ export function BookingsManagement() {
         cache: "no-store",
       });
 
-      const roomsParams = new URLSearchParams();
-
-      if (operationDay) {
-        roomsParams.set("operationDay", operationDay);
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, `Failed to load rooms (${response.status}).`));
       }
 
-      const roomsQuery = roomsParams.toString();
-      const roomsResponse = await apiFetch(`/rooms${roomsQuery.length > 0 ? `?${roomsQuery}` : ""}`, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      });
+      const payload = (await response.json()) as PaginatedResponse<Room> | Room[];
+      const rows = Array.isArray(payload)
+        ? payload
+        : isPaginatedResponse<Room>(payload)
+          ? payload.data
+          : [];
 
-      if (!bookingsResponse.ok) {
-        throw new Error(await getErrorMessage(bookingsResponse, `Failed to load bookings (${bookingsResponse.status}).`));
-      }
-
-      if (!roomsResponse.ok) {
-        throw new Error(await getErrorMessage(roomsResponse, `Failed to load rooms (${roomsResponse.status}).`));
-      }
-
-      const [bookingsPayload, roomsPayload] = await Promise.all([
-        bookingsResponse.json() as Promise<Booking[]>,
-        roomsResponse.json() as Promise<Room[]>,
-      ]);
-
-      return {
-        bookings: bookingsPayload,
-        rooms: roomsPayload.map(mapApiRoomToUiRoom),
-      };
+      return rows.map(mapApiRoomToUiRoom);
     },
   });
 
-  useEffect(() => {
-    if (!queryData) {
-      return;
-    }
+  const fullBookingsQuery = useQuery({
+    queryKey: ["bookings", { scope: "all", operationDay, search, status: statusFilter }],
+    queryFn: async () => {
+      const params = buildQueryString({
+        operationDay,
+        search: search.length > 0 ? search : undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+      });
 
-    setBookings(queryData.bookings);
-    setRooms(queryData.rooms);
-  }, [queryData]);
+      const response = await apiFetch(`/bookings${params.length > 0 ? `?${params}` : ""}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, `Failed to load bookings (${response.status}).`));
+      }
+
+      const payload = (await response.json()) as PaginatedResponse<Booking> | Booking[];
+
+      return Array.isArray(payload)
+        ? payload
+        : isPaginatedResponse<Booking>(payload)
+          ? payload.data
+          : [];
+    },
+  });
+
+  const pagedBookingsQuery = useQuery({
+    queryKey: ["bookings", { scope: "page", operationDay, search, status: statusFilter, page, pageSize }],
+    queryFn: async () => {
+      const params = buildQueryString({
+        page,
+        pageSize,
+        operationDay,
+        search: search.length > 0 ? search : undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+      });
+
+      const response = await apiFetch(`/bookings?${params}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response, `Failed to load bookings (${response.status}).`));
+      }
+
+      const payload = (await response.json()) as PaginatedResponse<Booking> | Booking[];
+
+      if (Array.isArray(payload)) {
+        return {
+          data: payload,
+          meta: {
+            page,
+            pageSize,
+            total: payload.length,
+            totalPages: payload.length > 0 ? 1 : 0,
+          },
+        };
+      }
+
+      return isPaginatedResponse<Booking>(payload)
+        ? payload
+        : {
+            data: [],
+            meta: {
+              page,
+              pageSize,
+              total: 0,
+              totalPages: 0,
+            },
+          };
+    },
+  });
+
+  const rooms = useMemo(() => roomsQuery.data ?? [], [roomsQuery.data]);
+  const bookings = useMemo(() => fullBookingsQuery.data ?? [], [fullBookingsQuery.data]);
+  const pageBookings = useMemo(() => pagedBookingsQuery.data?.data ?? [], [pagedBookingsQuery.data]);
+  const pageMeta = pagedBookingsQuery.data?.meta;
+  const isLoading = roomsQuery.isLoading || fullBookingsQuery.isLoading || pagedBookingsQuery.isLoading;
+
+  const updateUrlState = (nextParams: Record<string, string | number | undefined>) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    Object.entries(nextParams).forEach(([key, value]) => {
+      if (value === undefined || value === "") {
+        params.delete(key);
+        return;
+      }
+
+      params.set(key, String(value));
+    });
+
+    const nextQuery = params.toString();
+    router.replace(nextQuery.length > 0 ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  };
+
+  const refreshData = async () => {
+    await Promise.all([roomsQuery.refetch(), fullBookingsQuery.refetch(), pagedBookingsQuery.refetch()]);
+  };
 
   useEffect(() => {
+    const error = fullBookingsQuery.error ?? roomsQuery.error ?? pagedBookingsQuery.error;
+
     if (error) {
       console.error(error);
       setActionMessage(error instanceof Error ? error.message : "Unable to load bookings.");
     }
-  }, [error]);
+  }, [fullBookingsQuery.error, pagedBookingsQuery.error, roomsQuery.error]);
 
   const roomById = useMemo(() => byId<Room>(rooms), [rooms]);
-
-  const visibleBookings = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return bookings.filter((booking) => {
-      if (statusFilter !== "all" && booking.status !== statusFilter) {
-        return false;
-      }
-
-      if (!query) {
-        return true;
-      }
-
-      const room = roomById.get(booking.roomId);
-
-      const guestName = booking.guest.name.toLowerCase();
-      const roomLabel = room ? `room ${room.number}`.toLowerCase() : "";
-
-      return (
-        booking.code.toLowerCase().includes(query) ||
-        guestName.includes(query) ||
-        roomLabel.includes(query)
-      );
-    });
-  }, [bookings, roomById, search, statusFilter]);
 
   const metrics = useMemo(() => {
     const confirmed = bookings.filter((booking) => booking.status === "confirmed").length;
@@ -401,7 +504,7 @@ export function BookingsManagement() {
           throw new Error(await getErrorMessage(response, `Failed to check out booking (${response.status}).`));
         }
 
-        await refetch();
+        await refreshData();
         setActionMessage(`Booking ${booking.code} checked out. Room moved to cleaning.`);
       } catch (error) {
         console.error(error);
@@ -431,7 +534,7 @@ export function BookingsManagement() {
           throw new Error(await getErrorMessage(response, `Failed to set room available (${response.status}).`));
         }
 
-        await refetch();
+        await refreshData();
         setActionMessage("Room marked as available.");
       } catch (error) {
         console.error(error);
@@ -498,7 +601,7 @@ export function BookingsManagement() {
           throw new Error(await getErrorMessage(response, `Failed to save booking (${response.status}).`));
         }
 
-        await refetch();
+        await refreshData();
         setIsFormOpen(false);
         setFormError(null);
         setActionMessage("Booking saved successfully.");
@@ -525,7 +628,7 @@ export function BookingsManagement() {
           throw new Error(await getErrorMessage(response, `Failed to cancel booking (${response.status}).`));
         }
 
-        await refetch();
+        await refreshData();
         setActionMessage(booking ? `Booking ${booking.code} cancelled.` : "Booking cancelled.");
       } catch (error) {
         console.error(error);
@@ -566,14 +669,14 @@ export function BookingsManagement() {
           <input
             type="search"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => updateUrlState({ search: event.target.value, page: 1 })}
             placeholder="Search by code, guest, room"
             className="h-10 w-full max-w-sm rounded-md border border-slate-200 px-3 text-sm text-slate-700"
           />
 
           <select
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as BookingFilter)}
+            onChange={(event) => updateUrlState({ status: event.target.value, page: 1 })}
             className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
           >
             <option value="all">All statuses</option>
@@ -682,11 +785,16 @@ export function BookingsManagement() {
               ),
             },
           ]}
-          data={visibleBookings}
+          data={pageBookings}
           getRowKey={(booking) => booking.id}
           isLoading={isLoading}
           emptyTitle="No bookings found"
           emptyDescription="Try adjusting filters or create a new booking."
+          page={page}
+          pageSize={pageSize}
+          totalPages={pageMeta?.totalPages ?? 0}
+          onPageChange={(nextPage) => updateUrlState({ page: nextPage })}
+          onPageSizeChange={(nextPageSize) => updateUrlState({ pageSize: nextPageSize, page: 1 })}
         />
 
         {actionMessage ? (

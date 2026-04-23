@@ -10,21 +10,28 @@ import { db, bookings as bookingsTable, rooms as roomsTable } from '@repo/db';
 import {
   bookingResponseSchema,
   createBookingSchema,
-  listBookingsQuerySchema,
   updateBookingSchema,
+  type BookingListResponse,
   type BookingResponse,
   type CreateBookingInput,
-  type ListBookingsQueryInput,
   type UpdateBookingInput,
 } from '@repo/contracts';
 
 type BookingRecord = typeof bookingsTable.$inferSelect;
 type RoomRecord = typeof roomsTable.$inferSelect;
+type BookingListQuery = {
+  status?: 'all' | BookingRecord['status'];
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  order?: 'asc' | 'desc';
+};
 
 @Injectable()
 export class BookingsService {
-  async listBookings(query: unknown): Promise<BookingResponse[]> {
-    const parsedQuery = this.parseSchema<ListBookingsQueryInput>(listBookingsQuerySchema, query);
+  async listBookings(query: unknown): Promise<BookingListResponse> {
+    const parsedQuery = this.normalizeListQuery(query);
 
     const [bookingRows, roomRows] = await Promise.all([
       db.select().from(bookingsTable),
@@ -34,10 +41,16 @@ export class BookingsService {
     const roomById = new Map(roomRows.map((room) => [room.id, room]));
     const searchTerm = parsedQuery.search?.toLowerCase();
 
-    return (bookingRows as BookingRecord[])
-      .map((booking) => this.toBookingResponse(booking, roomById.get(booking.roomId) ?? null))
+    const responses = (bookingRows as BookingRecord[])
+      .map((booking) =>
+        this.toBookingResponse(booking, roomById.get(booking.roomId) ?? null),
+      )
       .filter((booking) => {
-        if (parsedQuery.status && parsedQuery.status !== 'all' && booking.status !== parsedQuery.status) {
+        if (
+          parsedQuery.status &&
+          parsedQuery.status !== 'all' &&
+          booking.status !== parsedQuery.status
+        ) {
           return false;
         }
 
@@ -52,14 +65,54 @@ export class BookingsService {
         return (
           booking.code.toLowerCase().includes(searchTerm) ||
           guestName.includes(searchTerm) ||
-          roomLabel.includes(searchTerm)
+          roomLabel.includes(searchTerm) ||
+          booking.guest.phone?.toLowerCase().includes(searchTerm) ||
+          booking.handledBy?.toLowerCase().includes(searchTerm)
         );
       })
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+      .sort((left, right) =>
+        this.compareBookings(
+          left,
+          right,
+          parsedQuery.sortBy,
+          parsedQuery.order,
+          roomById,
+        ),
+      );
+
+    const paginate =
+      parsedQuery.page !== undefined || parsedQuery.pageSize !== undefined;
+    const pageSize =
+      typeof parsedQuery.pageSize === 'number' ? parsedQuery.pageSize : 10;
+    const page = typeof parsedQuery.page === 'number' ? parsedQuery.page : 1;
+    const total = responses.length;
+    const totalPages = paginate
+      ? total > 0
+        ? Math.ceil(total / pageSize)
+        : 0
+      : total > 0
+        ? 1
+        : 0;
+    const startIndex = (page - 1) * pageSize;
+
+    return {
+      data: paginate
+        ? responses.slice(startIndex, startIndex + pageSize)
+        : responses,
+      meta: {
+        page,
+        pageSize: paginate ? pageSize : total > 0 ? total : 1,
+        total,
+        totalPages,
+      },
+    };
   }
 
   async createBooking(body: unknown): Promise<BookingResponse> {
-    const input = this.parseSchema<CreateBookingInput>(createBookingSchema, body);
+    const input = this.parseSchema<CreateBookingInput>(
+      createBookingSchema,
+      body,
+    );
     this.validateStayDates(input.checkInDate, input.checkOutDate);
 
     const room = await this.findRoomById(db, input.roomId);
@@ -109,7 +162,10 @@ export class BookingsService {
   }
 
   async updateBooking(id: string, body: unknown): Promise<BookingResponse> {
-    const input = this.parseSchema<UpdateBookingInput>(updateBookingSchema, body);
+    const input = this.parseSchema<UpdateBookingInput>(
+      updateBookingSchema,
+      body,
+    );
     this.validateStayDates(input.checkInDate, input.checkOutDate);
 
     const existingBooking = await this.findBookingById(db, id);
@@ -205,11 +261,15 @@ export class BookingsService {
     const operationDay = this.getCurrentOperationDay();
 
     if (operationDay <= existingBooking.checkInDate) {
-      throw new BadRequestException('Check-out date must be after check-in date.');
+      throw new BadRequestException(
+        'Check-out date must be after check-in date.',
+      );
     }
 
     if (operationDay > existingBooking.checkOutDate) {
-      throw new ConflictException('Booking has already ended and cannot be checked out.');
+      throw new ConflictException(
+        'Booking has already ended and cannot be checked out.',
+      );
     }
 
     const room = await this.findRoomById(db, existingBooking.roomId);
@@ -218,7 +278,10 @@ export class BookingsService {
       throw new NotFoundException('Room not found');
     }
 
-    const checkoutNights = this.calculateNights(existingBooking.checkInDate, operationDay);
+    const checkoutNights = this.calculateNights(
+      existingBooking.checkInDate,
+      operationDay,
+    );
     const totalAmount = this.calculateTotalAmount(room, checkoutNights);
     const paidAmount = Math.min(existingBooking.paidAmount ?? 0, totalAmount);
 
@@ -254,18 +317,181 @@ export class BookingsService {
     const result = schema.safeParse(value) as {
       success: boolean;
       data?: T;
-      error?: { issues: Array<{ message: string }> };
+      error?:
+        | {
+            issues: Array<{ message: string }>;
+          }
+        | undefined;
     };
 
     if (!result.success) {
-      const error = result.error as { issues: Array<{ message: string }> } | undefined;
-      throw new BadRequestException(error?.issues[0]?.message ?? 'Invalid request payload.');
+      throw new BadRequestException(
+        result.error?.issues[0]?.message ?? 'Invalid request payload.',
+      );
     }
 
     return result.data as T;
   }
 
-  private async findRoomById(database: typeof db, roomId: string): Promise<RoomRecord | undefined> {
+  private normalizeListQuery(query: unknown): BookingListQuery {
+    const record =
+      typeof query === 'object' && query !== null && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+
+    return {
+      status: this.normalizeBookingStatus(record.status),
+      search: this.optionalTrimmedString(record.search),
+      page: this.optionalPositiveInteger(record.page),
+      pageSize: this.optionalPositiveInteger(record.pageSize),
+      sortBy: this.optionalTrimmedString(record.sortBy),
+      order:
+        record.order === 'asc' || record.order === 'desc'
+          ? record.order
+          : 'desc',
+    };
+  }
+
+  private normalizeBookingStatus(value: unknown): BookingListQuery['status'] {
+    if (
+      value === undefined ||
+      value === null ||
+      value === '' ||
+      value === 'all'
+    ) {
+      return undefined;
+    }
+
+    if (value === 'confirmed' || value === 'pending' || value === 'cancelled') {
+      return value;
+    }
+
+    throw new BadRequestException(
+      'status must be one of: all, confirmed, pending, cancelled.',
+    );
+  }
+
+  private optionalTrimmedString(value: unknown): string | undefined {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    if (typeof value !== 'string') {
+      throw new BadRequestException('Query values must be strings.');
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  private optionalPositiveInteger(value: unknown): number | undefined {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    const parsed = typeof value === 'number' ? value : Number(value);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new BadRequestException(
+        'page and pageSize must be positive integers.',
+      );
+    }
+
+    return parsed;
+  }
+
+  private compareBookings(
+    left: BookingResponse,
+    right: BookingResponse,
+    sortBy?: string,
+    order: BookingListQuery['order'] = 'desc',
+    roomById?: Map<string, RoomRecord>,
+  ): number {
+    let result = 0;
+
+    if (!sortBy || sortBy === 'createdAt') {
+      result = right.createdAt.localeCompare(left.createdAt);
+    } else if (sortBy === 'roomNumber') {
+      const leftRoom = roomById?.get(left.roomId);
+      const rightRoom = roomById?.get(right.roomId);
+
+      result = (leftRoom?.number ?? '').localeCompare(
+        rightRoom?.number ?? '',
+        undefined,
+        {
+          numeric: true,
+          sensitivity: 'base',
+        },
+      );
+    } else {
+      switch (sortBy) {
+        case 'code':
+          result = left.code.localeCompare(right.code, undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          });
+          break;
+        case 'guestName':
+          result = left.guest.name.localeCompare(right.guest.name, undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          });
+          break;
+        case 'status':
+          result = left.status.localeCompare(right.status, undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          });
+          break;
+        case 'source':
+          result = left.source.localeCompare(right.source, undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          });
+          break;
+        case 'paymentStatus':
+          result = left.paymentStatus.localeCompare(
+            right.paymentStatus,
+            undefined,
+            {
+              numeric: true,
+              sensitivity: 'base',
+            },
+          );
+          break;
+        case 'checkInDate':
+          result = left.checkInDate.localeCompare(right.checkInDate);
+          break;
+        case 'checkOutDate':
+          result = left.checkOutDate.localeCompare(right.checkOutDate);
+          break;
+        case 'dueDate':
+          result = (left.dueDate ?? '').localeCompare(right.dueDate ?? '');
+          break;
+        case 'nights':
+          result = left.nights - right.nights;
+          break;
+        case 'totalAmount':
+          result = left.totalAmount - right.totalAmount;
+          break;
+        case 'paidAmount':
+          result = left.paidAmount - right.paidAmount;
+          break;
+        case 'remainingAmount':
+          result = left.remainingAmount - right.remainingAmount;
+          break;
+        default:
+          throw new BadRequestException('Invalid sort field.');
+      }
+    }
+
+    return order === 'desc' ? -result : result;
+  }
+
+  private async findRoomById(
+    database: typeof db,
+    roomId: string,
+  ): Promise<RoomRecord | undefined> {
     const rooms = (await database
       .select()
       .from(roomsTable)
@@ -275,7 +501,10 @@ export class BookingsService {
     return rooms[0];
   }
 
-  private async findBookingById(database: typeof db, id: string): Promise<BookingRecord | undefined> {
+  private async findBookingById(
+    database: typeof db,
+    id: string,
+  ): Promise<BookingRecord | undefined> {
     const bookings = (await database
       .select()
       .from(bookingsTable)
@@ -329,7 +558,10 @@ export class BookingsService {
       throw new NotFoundException('Room not found');
     }
 
-    const nights = this.calculateNights(booking.checkInDate, booking.checkOutDate);
+    const nights = this.calculateNights(
+      booking.checkInDate,
+      booking.checkOutDate,
+    );
     const totalAmount = this.calculateTotalAmount(room, nights);
     const paidAmount = Math.min(booking.paidAmount ?? 0, totalAmount);
     const remainingAmount = Math.max(totalAmount - paidAmount, 0);
@@ -364,7 +596,9 @@ export class BookingsService {
 
   private validateStayDates(checkInDate: string, checkOutDate: string): void {
     if (checkInDate >= checkOutDate) {
-      throw new BadRequestException('Check-out date must be after check-in date.');
+      throw new BadRequestException(
+        'Check-out date must be after check-in date.',
+      );
     }
   }
 
@@ -382,7 +616,10 @@ export class BookingsService {
     return room.pricePerNight * nights;
   }
 
-  private derivePaymentStatus(totalAmount: number, paidAmount: number): BookingResponse['paymentStatus'] {
+  private derivePaymentStatus(
+    totalAmount: number,
+    paidAmount: number,
+  ): BookingResponse['paymentStatus'] {
     if (paidAmount <= 0) {
       return 'unpaid';
     }
@@ -395,7 +632,9 @@ export class BookingsService {
   }
 
   private async generateBookingCode(database: typeof db): Promise<string> {
-    const bookingRows = (await database.select({ id: bookingsTable.id }).from(bookingsTable)) as Array<{
+    const bookingRows = (await database
+      .select({ id: bookingsTable.id })
+      .from(bookingsTable)) as Array<{
       id: string;
     }>;
 

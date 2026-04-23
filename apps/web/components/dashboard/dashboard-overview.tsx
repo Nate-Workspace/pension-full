@@ -76,6 +76,16 @@ type AlertRow = {
   status: string;
 };
 
+type PaginatedResponse<T> = {
+  data: T[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
 function formatCurrency(amount: number): string {
   return `${amount.toLocaleString("en-US")} Birr`;
 }
@@ -200,13 +210,13 @@ export function DashboardOverview() {
       const [summaryPayload, trendsPayload, bookingsPayload, roomsPayload] = await Promise.all([
         getJson<DashboardSummary>(summaryResponse, "Failed to load dashboard summary."),
         getJson<DashboardTrends>(trendsResponse, "Failed to load dashboard trends."),
-        getJson<Booking[]>(bookingsResponse, "Failed to load bookings."),
-        getJson<Room[]>(roomsResponse, "Failed to load rooms."),
+        getJson<PaginatedResponse<Booking>>(bookingsResponse, "Failed to load bookings."),
+        getJson<PaginatedResponse<Room>>(roomsResponse, "Failed to load rooms."),
       ]);
 
       return {
-        bookings: bookingsPayload,
-        rooms: roomsPayload,
+        bookings: bookingsPayload.data,
+        rooms: roomsPayload.data,
         summary: summaryPayload,
         trends: trendsPayload,
       };

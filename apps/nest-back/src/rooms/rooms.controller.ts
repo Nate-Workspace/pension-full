@@ -20,11 +20,8 @@ export class RoomsController {
   constructor(private readonly roomsService: RoomsService) {}
 
   @Get()
-  listRooms(
-    @Query('status') status?: string,
-    @Query('operationDay') operationDay?: string,
-  ) {
-    return this.roomsService.listRooms({ status, operationDay });
+  listRooms(@Query() query: unknown) {
+    return this.roomsService.listRooms(query as never);
   }
 
   @Post()
