@@ -117,7 +117,7 @@ function validateRoomForm(formState: RoomFormState, existingRooms: Room[]): stri
 
 export function RoomsManagement() {
   const router = useRouter();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const { operationDay } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
   const [rooms, setRooms] = useState<RoomWithGuest[]>([]);
@@ -126,6 +126,7 @@ export function RoomsManagement() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [formState, setFormState] = useState<RoomFormState>(createDefaultFormState());
   const [formError, setFormError] = useState<string | null>(null);
+  const canUpdateStatus = user?.role === "admin" || user?.role === "staff";
 
   const fetchRooms = useCallback(async () => {
     const params = new URLSearchParams();
@@ -431,7 +432,7 @@ export function RoomsManagement() {
       header: "Quick Actions",
       render: (room: RoomWithGuest) => (
         <div className="flex flex-wrap items-center gap-2">
-          {isAdmin ? (
+          {canUpdateStatus ? (
             <>
               <select
                 aria-label={`Change status for room ${room.number}`}
@@ -446,13 +447,15 @@ export function RoomsManagement() {
                 ))}
               </select>
 
-              <button
-                type="button"
-                onClick={() => openEditDrawer(room)}
-                className="h-9 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"
-              >
-                Edit
-              </button>
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => openEditDrawer(room)}
+                  className="h-9 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  Edit
+                </button>
+              ) : null}
             </>
           ) : (
             <span className="text-xs text-slate-500">Not permitted</span>

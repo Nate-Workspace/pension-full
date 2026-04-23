@@ -40,7 +40,7 @@ export class RoomsController {
   }
 
   @Patch(':id/status')
-  @Roles('admin')
+  @Roles('admin', 'staff')
   updateRoomStatus(@Param('id') id: string, @Body() body: unknown) {
     return this.roomsService.updateRoomStatus(id, body);
   }
