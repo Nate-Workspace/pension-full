@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 import type { Room, RoomType } from "@/data";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -115,6 +116,7 @@ function validateRoomForm(formState: RoomFormState, existingRooms: Room[]): stri
 }
 
 export function RoomsManagement() {
+  const router = useRouter();
   const { isAdmin } = useAuth();
   const { operationDay } = useOperationsData();
   const [isLoading, setIsLoading] = useState(true);
@@ -512,6 +514,8 @@ export function RoomsManagement() {
           columns={columns}
           data={filteredRooms}
           getRowKey={(room) => room.id}
+          enableRowNavigation
+          onRowNavigate={(row) => router.push(`/rooms/${row.id}`)}
           isLoading={isLoading}
           emptyTitle="No rooms for this status"
           emptyDescription="Try selecting another status or add a new room."

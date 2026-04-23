@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { IconChevronRight } from "@tabler/icons-react";
 
 export type DataTableColumn<TData> = {
   key: string;
@@ -13,6 +14,8 @@ type DataTableProps<TData> = {
   data: TData[];
   getRowKey: (row: TData, index: number) => string;
   getRowClassName?: (row: TData, index: number) => string;
+  enableRowNavigation?: boolean;
+  onRowNavigate?: (row: TData) => void;
   isLoading?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -37,6 +40,8 @@ export function DataTable<TData>({
   data,
   getRowKey,
   getRowClassName,
+  enableRowNavigation = false,
+  onRowNavigate,
   isLoading = false,
   emptyTitle = "No records found",
   emptyDescription = "Try adjusting filters or adding a new entry.",
@@ -59,6 +64,13 @@ export function DataTable<TData>({
                   {column.header}
                 </th>
               ))}
+              {enableRowNavigation ? (
+                <th
+                  className="w-12 px-2 py-3"
+                  scope="col"
+                  aria-label="Row navigation"
+                />
+              ) : null}
             </tr>
           </thead>
 
@@ -74,12 +86,13 @@ export function DataTable<TData>({
                         <div className="h-4 animate-pulse rounded bg-slate-100" />
                       </td>
                     ))}
+                    {enableRowNavigation ? <td className="w-12 px-2 py-3" /> : null}
                   </tr>
                 ))
               : data.map((row, rowIndex) => (
                   <tr
                     key={getRowKey(row, rowIndex)}
-                    className={`border-b border-slate-100 last:border-0 ${getRowClassName?.(row, rowIndex) ?? ""}`}
+                    className={`group border-b border-slate-100 transition-colors hover:bg-slate-50 last:border-0 ${getRowClassName?.(row, rowIndex) ?? ""}`}
                   >
                     {columns.map((column) => (
                       <td
@@ -89,6 +102,18 @@ export function DataTable<TData>({
                         {column.render(row)}
                       </td>
                     ))}
+                    {enableRowNavigation ? (
+                      <td className="w-12 px-2 py-3 text-right">
+                        <button
+                          type="button"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 opacity-0 transition-opacity hover:text-slate-900 group-hover:opacity-100"
+                          aria-label="Navigate row"
+                          onClick={() => onRowNavigate?.(row)}
+                        >
+                          <IconChevronRight aria-hidden="true" size={16} stroke={2} />
+                        </button>
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
           </tbody>
