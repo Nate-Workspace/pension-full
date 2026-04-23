@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Bar,
@@ -220,7 +220,10 @@ export function PaymentsManagement() {
       ]);
 
       const paymentRows = Array.isArray(paymentsPayload)
-        ? paymentsPayload
+        ? (() => {
+            const startIndex = (page - 1) * pageSize;
+            return paymentsPayload.slice(startIndex, startIndex + pageSize);
+          })()
         : isPaginatedResponse<PaymentsResponseRow>(paymentsPayload)
           ? paymentsPayload.data
           : [];
@@ -230,7 +233,7 @@ export function PaymentsManagement() {
             page,
             pageSize,
             total: paymentsPayload.length,
-            totalPages: paymentsPayload.length > 0 ? 1 : 0,
+            totalPages: paymentsPayload.length > 0 ? Math.ceil(paymentsPayload.length / pageSize) : 0,
           }
         : isPaginatedResponse<PaymentsResponseRow>(paymentsPayload)
           ? paymentsPayload.meta
@@ -260,6 +263,19 @@ export function PaymentsManagement() {
       };
     },
   });
+
+  useEffect(() => {
+    if (searchParams.get("page") && searchParams.get("pageSize")) {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", searchParams.get("page") ?? "1");
+    params.set("pageSize", searchParams.get("pageSize") ?? "10");
+
+    const nextQuery = params.toString();
+    router.replace(nextQuery.length > 0 ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  }, [searchParams, pathname, router]);
 
   const loadError = error instanceof Error ? error.message : error ? "Unable to load payments data." : null;
   const paymentRows = useMemo(() => data?.paymentRows ?? [], [data]);

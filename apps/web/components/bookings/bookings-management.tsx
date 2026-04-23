@@ -337,13 +337,17 @@ export function BookingsManagement() {
       const payload = (await response.json()) as PaginatedResponse<Booking> | Booking[];
 
       if (Array.isArray(payload)) {
+        const total = payload.length;
+        const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
+        const startIndex = (page - 1) * pageSize;
+
         return {
-          data: payload,
+          data: payload.slice(startIndex, startIndex + pageSize),
           meta: {
             page,
             pageSize,
-            total: payload.length,
-            totalPages: payload.length > 0 ? 1 : 0,
+            total,
+            totalPages,
           },
         };
       }
@@ -367,6 +371,19 @@ export function BookingsManagement() {
   const pageBookings = useMemo(() => pagedBookingsQuery.data?.data ?? [], [pagedBookingsQuery.data]);
   const pageMeta = pagedBookingsQuery.data?.meta;
   const isLoading = roomsQuery.isLoading || fullBookingsQuery.isLoading || pagedBookingsQuery.isLoading;
+
+  useEffect(() => {
+    if (searchParams.get("page") && searchParams.get("pageSize")) {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", searchParams.get("page") ?? "1");
+    params.set("pageSize", searchParams.get("pageSize") ?? "10");
+
+    const nextQuery = params.toString();
+    router.replace(nextQuery.length > 0 ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  }, [searchParams, pathname, router]);
 
   const updateUrlState = (nextParams: Record<string, string | number | undefined>) => {
     const params = new URLSearchParams(searchParams.toString());

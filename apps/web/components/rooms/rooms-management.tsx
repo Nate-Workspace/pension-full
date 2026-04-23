@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
@@ -253,13 +254,17 @@ export function RoomsManagement() {
       const payload = (await response.json()) as PaginatedResponse<RoomWithGuest> | RoomWithGuest[];
 
       if (Array.isArray(payload)) {
+        const total = payload.length;
+        const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
+        const startIndex = (page - 1) * pageSize;
+
         return {
-          data: payload,
+          data: payload.slice(startIndex, startIndex + pageSize),
           meta: {
             page,
             pageSize,
-            total: payload.length,
-            totalPages: payload.length > 0 ? 1 : 0,
+            total,
+            totalPages,
           },
         };
       }
@@ -285,6 +290,19 @@ export function RoomsManagement() {
   );
   const pageMeta = pagedRoomsQuery.data?.meta;
   const isLoading = roomsQuery.isLoading || pagedRoomsQuery.isLoading;
+
+  useEffect(() => {
+    if (searchParams.get("page") && searchParams.get("pageSize")) {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", searchParams.get("page") ?? "1");
+    params.set("pageSize", searchParams.get("pageSize") ?? "10");
+
+    const nextQuery = params.toString();
+    router.replace(nextQuery.length > 0 ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  }, [searchParams, pathname, router]);
 
   const updateUrlState = (nextParams: Record<string, string | number | undefined>) => {
     const params = new URLSearchParams(searchParams.toString());
