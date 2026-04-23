@@ -501,12 +501,23 @@ export class RoomsService {
         numeric: true,
         sensitivity: 'base',
       });
-    } else if (sortBy === 'type' || sortBy === 'status') {
-      const rank = sortBy === 'type'
-        ? { single: 0, double: 1, vip: 2 }
-        : { available: 0, occupied: 1, cleaning: 2, maintenance: 3 };
+    } else if (sortBy === 'type') {
+      const rank: Record<RoomResponseRow['type'], number> = {
+        single: 0,
+        double: 1,
+        vip: 2,
+      };
 
-      result = rank[left[sortBy]] - rank[right[sortBy]];
+      result = rank[left.type] - rank[right.type];
+    } else if (sortBy === 'status') {
+      const rank: Record<RoomResponseRow['status'], number> = {
+        available: 0,
+        occupied: 1,
+        cleaning: 2,
+        maintenance: 3,
+      };
+
+      result = rank[left.status] - rank[right.status];
     } else if (sortBy === 'capacity' || sortBy === 'price') {
       result = left[sortBy] - right[sortBy];
     } else {
