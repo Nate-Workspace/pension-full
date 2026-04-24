@@ -403,9 +403,9 @@ export function RoomDetails({ roomId }: RoomDetailsProps) {
                         className={`truncate rounded border px-1 py-0.5 text-[10px] font-medium ${bookingStatusStyle(
                           booking.status,
                         )}`}
-                        title={`${booking.code} (${bookingStatusLabel(booking.status)})`}
+                        title={`${booking.guest.name} (${bookingStatusLabel(booking.status)})`}
                       >
-                        {booking.code}
+                        {booking.guest.name}
                       </div>
                     ))}
                     {dayBookings.length > 2 ? (

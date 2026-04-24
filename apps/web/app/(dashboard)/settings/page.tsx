@@ -8,19 +8,19 @@ import { SettingsManagement } from "@/components/settings/settings-management";
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { isAdmin, isAuthResolved } = useAuth();
+  const { isAdmin, isLoading } = useAuth();
 
   useEffect(() => {
-    if (!isAuthResolved) {
+    if (isLoading) {
       return;
     }
 
     if (!isAdmin) {
       router.replace("/dashboard");
     }
-  }, [isAdmin, isAuthResolved, router]);
+  }, [isAdmin, isLoading, router]);
 
-  if (!isAuthResolved || !isAdmin) {
+  if (isLoading || !isAdmin) {
     return null;
   }
 

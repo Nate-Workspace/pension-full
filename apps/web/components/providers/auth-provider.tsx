@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { createContext, useContext } from "react";
+import type { ReactNode } from "react";
 
 import { apiFetch } from "@/lib/api-client";
 
@@ -14,76 +15,69 @@ export type AuthUser = {
 type AuthContextValue = {
   user: AuthUser | null;
   isAuthenticated: boolean;
-  isAuthResolved: boolean;
+  isLoading: boolean;
   isAdmin: boolean;
   isStaff: boolean;
-  setUser: Dispatch<SetStateAction<AuthUser | null>>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+export const AUTH_QUERY_KEY = ["auth", "me"] as const;
+
+async function fetchCurrentUser(): Promise<AuthUser | null> {
+  const response = await apiFetch("/auth/me", {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+    cache: "no-store",
+    skipAuthRedirect: true,
+  });
+
+  if (response.status === 401) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Unable to restore auth session (${response.status}).`);
+  }
+
+  return (await response.json()) as AuthUser;
+}
 
 type AuthProviderProps = {
   children: ReactNode;
 };
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isAuthResolved, setIsAuthResolved] = useState(false);
+  const authQuery = useQuery({
+    queryKey: AUTH_QUERY_KEY,
+    queryFn: fetchCurrentUser,
+    retry: 1,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
 
-  useEffect(() => {
-    let isMounted = true;
+  const user = authQuery.data ?? null;
+  const isLoading = authQuery.isPending;
 
-    const restoreSession = async () => {
-      try {
-        const response = await apiFetch("/auth/me", {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-          },
-          cache: "no-store",
-          skipAuthRedirect: true,
-        });
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-slate-900">
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-slate-900" />
+          <p className="text-sm font-medium">Restoring session...</p>
+        </div>
+      </div>
+    );
+  }
 
-        if (!isMounted) {
-          return;
-        }
-
-        if (!response.ok) {
-          setUser(null);
-          return;
-        }
-
-        const payload = (await response.json()) as AuthUser;
-        setUser(payload);
-      } catch {
-        if (isMounted) {
-          setUser(null);
-        }
-      } finally {
-        if (isMounted) {
-          setIsAuthResolved(true);
-        }
-      }
-    };
-
-    void restoreSession();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      user,
-      isAuthenticated: user !== null,
-      isAuthResolved,
-      isAdmin: user?.role === 'admin',
-      isStaff: user?.role === 'staff',
-      setUser,
-    }),
-    [isAuthResolved, user],
-  );
+  const value: AuthContextValue = {
+    user,
+    isAuthenticated: user !== null,
+    isLoading,
+    isAdmin: user?.role === "admin",
+    isStaff: user?.role === "staff",
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

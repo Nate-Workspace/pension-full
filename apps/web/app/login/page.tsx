@@ -2,8 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
-import { useAuth } from "@/components/providers/auth-provider";
+import { AUTH_QUERY_KEY, useAuth } from "@/components/providers/auth-provider";
 import { apiFetch } from "@/lib/api-client";
 
 type LoginPayload = {
@@ -39,7 +40,8 @@ async function getErrorMessage(response: Response, fallback: string): Promise<st
 
 export default function LoginPage() {
   const router = useRouter();
-  const { isAuthenticated, isAuthResolved, setUser } = useAuth();
+  const queryClient = useQueryClient();
+  const { isAuthenticated, isLoading } = useAuth();
 
   const [form, setForm] = useState<LoginPayload>({
     email: "",
@@ -49,14 +51,10 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthResolved) {
-      return;
-    }
-
-    if (isAuthenticated) {
+    if (!isLoading && isAuthenticated) {
       router.replace("/dashboard");
     }
-  }, [isAuthenticated, isAuthResolved, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -84,7 +82,7 @@ export default function LoginPage() {
         }
 
         const payload = (await response.json()) as LoginResponse;
-        setUser(payload.user);
+        queryClient.setQueryData(AUTH_QUERY_KEY, payload.user);
         router.replace("/dashboard");
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Unable to log in.");

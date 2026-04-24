@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { useAuth } from "@/components/providers/auth-provider";
+import { AUTH_QUERY_KEY, useAuth } from "@/components/providers/auth-provider";
 import { apiFetch } from "@/lib/api-client";
 import { dashboardNavigation } from "@/lib/navigation";
 
@@ -17,7 +18,8 @@ type DashboardShellProps = {
 
 export function DashboardShell({ children }: DashboardShellProps) {
   const router = useRouter();
-  const { isAdmin, setUser } = useAuth();
+  const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
   const pathname = usePathname();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -47,8 +49,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
           throw new Error(`Logout failed (${response.status}).`);
         }
 
-        setUser(null);
-        router.replace("/login");
+        queryClient.setQueryData(AUTH_QUERY_KEY, null);
+        router.replace("/auth/login");
       } catch (error) {
         console.error(error);
       } finally {

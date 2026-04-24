@@ -22,7 +22,7 @@ export async function apiFetch(path: string, init?: ApiFetchOptions): Promise<Re
   });
 
   if (!skipAuthRedirect && response.status === 401 && typeof window !== "undefined") {
-    window.location.assign("/login");
+    window.location.assign("/auth/login");
   }
 
   return response;

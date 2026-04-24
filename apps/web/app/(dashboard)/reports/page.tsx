@@ -8,19 +8,19 @@ import { ReportsManagement } from "@/components/reports/reports-management";
 
 export default function ReportsPage() {
   const router = useRouter();
-  const { isAdmin, isAuthResolved } = useAuth();
+  const { isAdmin, isLoading } = useAuth();
 
   useEffect(() => {
-    if (!isAuthResolved) {
+    if (isLoading) {
       return;
     }
 
     if (!isAdmin) {
       router.replace("/dashboard");
     }
-  }, [isAdmin, isAuthResolved, router]);
+  }, [isAdmin, isLoading, router]);
 
-  if (!isAuthResolved || !isAdmin) {
+  if (isLoading || !isAdmin) {
     return null;
   }
 
