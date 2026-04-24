@@ -1,21 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 
 import type { Booking, BookingStatus, Room } from "@/data";
-import { useOperationsData } from "@/components/providers/operations-provider";
 import { diffNights, isBookingActiveOn, parseIsoDate, toIsoDate } from "@/lib/operations";
 import {
   cancelBooking,
   checkoutBooking,
-  fetchAllBookings,
-  fetchPagedBookings,
-  fetchRooms,
-  parsePositiveInteger,
   saveBooking,
   setRoomAvailable,
-  type BookingFilter,
 } from "../services/bookings-service";
+import { useBookings } from "./use-bookings";
 
 export type BookingFormState = {
   id?: string;
@@ -165,14 +158,21 @@ function byId<T extends { id: string }>(items: T[]): Map<string, T> {
 }
 
 export function useBookingsManagement() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const { operationDay } = useOperationsData();
-  const search = searchParams.get("search")?.trim() ?? "";
-  const statusFilter = (searchParams.get("status") as BookingFilter | null) ?? "all";
-  const page = parsePositiveInteger(searchParams.get("page"), 1);
-  const pageSize = parsePositiveInteger(searchParams.get("pageSize"), 10);
+  const {
+    operationDay,
+    search,
+    statusFilter,
+    page,
+    pageSize,
+    rooms,
+    bookings,
+    pageBookings,
+    pageMeta,
+    isLoading,
+    loadError,
+    updateUrlState,
+    refreshData,
+  } = useBookings();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formState, setFormState] = useState<BookingFormState>(() => createFormDefaults([], operationDay));
@@ -183,68 +183,12 @@ export function useBookingsManagement() {
     return startOfMonthUTC(day.getUTCFullYear(), day.getUTCMonth());
   });
 
-  const roomsQuery = useQuery({
-    queryKey: ["rooms", { scope: "all", operationDay }],
-    queryFn: async () => fetchRooms(operationDay),
-  });
-
-  const fullBookingsQuery = useQuery({
-    queryKey: ["bookings", { scope: "all", operationDay, search, status: statusFilter }],
-    queryFn: async () => fetchAllBookings({ operationDay, search, statusFilter }),
-  });
-
-  const pagedBookingsQuery = useQuery({
-    queryKey: ["bookings", { scope: "page", operationDay, search, status: statusFilter, page, pageSize }],
-    queryFn: async () => fetchPagedBookings({ page, pageSize, operationDay, search, statusFilter }),
-  });
-
-  const rooms = useMemo(() => roomsQuery.data ?? [], [roomsQuery.data]);
-  const bookings = useMemo(() => fullBookingsQuery.data ?? [], [fullBookingsQuery.data]);
-  const pageBookings = useMemo(() => pagedBookingsQuery.data?.data ?? [], [pagedBookingsQuery.data]);
-  const pageMeta = pagedBookingsQuery.data?.meta;
-  const isLoading = roomsQuery.isLoading || fullBookingsQuery.isLoading || pagedBookingsQuery.isLoading;
-
   useEffect(() => {
-    if (searchParams.get("page") && searchParams.get("pageSize")) {
-      return;
+    if (loadError) {
+      console.error(loadError);
+      setActionMessage(loadError instanceof Error ? loadError.message : "Unable to load bookings.");
     }
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("page", searchParams.get("page") ?? "1");
-    params.set("pageSize", searchParams.get("pageSize") ?? "10");
-
-    const nextQuery = params.toString();
-    router.replace(nextQuery.length > 0 ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
-  }, [searchParams, pathname, router]);
-
-  const updateUrlState = (nextParams: Record<string, string | number | undefined>) => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    Object.entries(nextParams).forEach(([key, value]) => {
-      if (value === undefined || value === "") {
-        params.delete(key);
-        return;
-      }
-
-      params.set(key, String(value));
-    });
-
-    const nextQuery = params.toString();
-    router.replace(nextQuery.length > 0 ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
-  };
-
-  const refreshData = async () => {
-    await Promise.all([roomsQuery.refetch(), fullBookingsQuery.refetch(), pagedBookingsQuery.refetch()]);
-  };
-
-  useEffect(() => {
-    const error = fullBookingsQuery.error ?? roomsQuery.error ?? pagedBookingsQuery.error;
-
-    if (error) {
-      console.error(error);
-      setActionMessage(error instanceof Error ? error.message : "Unable to load bookings.");
-    }
-  }, [fullBookingsQuery.error, pagedBookingsQuery.error, roomsQuery.error]);
+  }, [loadError]);
 
   const roomById = useMemo(() => byId<Room>(rooms), [rooms]);
 

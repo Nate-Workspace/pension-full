@@ -1,22 +1,18 @@
 import type { Dispatch, SetStateAction } from "react";
-import { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import type { Room, RoomType } from "@/data";
 import { useAuth } from "@/components/providers/auth-provider";
-import { useOperationsData } from "@/components/providers/operations-provider";
 import type { RoomStatus } from "@/lib/types/status";
 import {
-  fetchPagedRooms,
-  fetchRooms,
-  parsePositiveInteger,
   saveRoom,
   updateRoomStatus,
   type RoomWithGuest,
 } from "../services/rooms-service";
+import { useRooms, type RoomsStatusFilter } from "./use-rooms";
 
-export type StatusFilter = "all" | RoomStatus;
+export type StatusFilter = RoomsStatusFilter;
 
 export type RoomFormState = {
   id?: string;
@@ -103,87 +99,24 @@ function validateRoomForm(formState: RoomFormState, existingRooms: Room[]): stri
 
 export function useRoomsManagement() {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const {
+    statusFilter,
+    search,
+    page,
+    pageSize,
+    rooms,
+    pageRooms,
+    pageMeta,
+    isLoading,
+    updateUrlState,
+    refreshRooms,
+  } = useRooms();
   const { isAdmin, user } = useAuth();
-  const { operationDay } = useOperationsData();
-  const statusFilter = (searchParams.get("status") as StatusFilter | null) ?? "all";
-  const search = searchParams.get("search")?.trim() ?? "";
-  const page = parsePositiveInteger(searchParams.get("page"), 1);
-  const pageSize = parsePositiveInteger(searchParams.get("pageSize"), 10);
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [formState, setFormState] = useState<RoomFormState>(createDefaultFormState());
   const [formError, setFormError] = useState<string | null>(null);
   const canUpdateStatus = user?.role === "admin" || user?.role === "staff";
-
-  const roomsQuery = useQuery({
-    queryKey: [
-      "rooms",
-      {
-        scope: "all",
-        status: statusFilter,
-        search,
-        operationDay,
-      },
-    ],
-    queryFn: async () => fetchRooms({ statusFilter, search, operationDay }),
-  });
-
-  const pagedRoomsQuery = useQuery({
-    queryKey: [
-      "rooms",
-      {
-        scope: "page",
-        page,
-        pageSize,
-        search,
-        filters: {
-          status: statusFilter,
-          operationDay,
-        },
-      },
-    ],
-    queryFn: async () => fetchPagedRooms({ page, pageSize, search, statusFilter, operationDay }),
-  });
-
-  const rooms = useMemo(() => roomsQuery.data ?? [], [roomsQuery.data]);
-  const pageRooms = useMemo(() => pagedRoomsQuery.data?.data ?? [], [pagedRoomsQuery.data]);
-  const pageMeta = pagedRoomsQuery.data?.meta;
-  const isLoading = roomsQuery.isLoading || pagedRoomsQuery.isLoading;
-
-  useEffect(() => {
-    if (searchParams.get("page") && searchParams.get("pageSize")) {
-      return;
-    }
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("page", searchParams.get("page") ?? "1");
-    params.set("pageSize", searchParams.get("pageSize") ?? "10");
-
-    const nextQuery = params.toString();
-    router.replace(nextQuery.length > 0 ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
-  }, [searchParams, pathname, router]);
-
-  const updateUrlState = (nextParams: Record<string, string | number | undefined>) => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    Object.entries(nextParams).forEach(([key, value]) => {
-      if (value === undefined || value === "") {
-        params.delete(key);
-        return;
-      }
-
-      params.set(key, String(value));
-    });
-
-    const nextQuery = params.toString();
-    router.replace(nextQuery.length > 0 ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
-  };
-
-  const refreshRooms = async () => {
-    await Promise.all([roomsQuery.refetch(), pagedRoomsQuery.refetch()]);
-  };
 
   const metrics = useMemo(() => {
     const occupiedCount = rooms.filter((room) => room.status === "occupied").length;
