@@ -22,6 +22,10 @@ export function RoomsManagement() {
     formState,
     setFormState,
     formError,
+    isFormDirty,
+    isSavingRoom,
+    isUpdatingRoomStatus,
+    pendingStatusRoomId,
     updateUrlState,
     openAddDrawer,
     openEditDrawer,
@@ -68,6 +72,8 @@ export function RoomsManagement() {
         isLoading={isLoading}
         canUpdateStatus={canUpdateStatus}
         isAdmin={isAdmin}
+        isUpdatingRoomStatus={isUpdatingRoomStatus}
+        pendingStatusRoomId={pendingStatusRoomId}
         totalPages={pageMeta?.totalPages ?? 0}
         updateUrlState={updateUrlState}
         onStatusChange={handleStatusChange}
@@ -79,6 +85,8 @@ export function RoomsManagement() {
         isOpen={isDrawerOpen}
         formState={formState}
         formError={formError}
+        isDirty={isFormDirty}
+        isSaving={isSavingRoom}
         onClose={closeDrawer}
         onSave={handleSaveRoom}
         onFormStateChange={setFormState}

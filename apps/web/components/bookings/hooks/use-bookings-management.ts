@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 
 import type { Booking, BookingStatus, Room } from "@/data";
 import { diffNights, isBookingActiveOn, parseIsoDate, toIsoDate } from "@/lib/operations";
@@ -176,11 +177,64 @@ export function useBookingsManagement() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formState, setFormState] = useState<BookingFormState>(() => createFormDefaults([], operationDay));
+  const [initialFormState, setInitialFormState] = useState<BookingFormState>(() => createFormDefaults([], operationDay));
   const [formError, setFormError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [viewMonth, setViewMonth] = useState<Date>(() => {
     const day = parseIsoDate(operationDay);
     return startOfMonthUTC(day.getUTCFullYear(), day.getUTCMonth());
+  });
+
+  const saveBookingMutation = useMutation({
+    mutationFn: saveBooking,
+    onSuccess: async () => {
+      await refreshData();
+      setIsFormOpen(false);
+      setFormError(null);
+      setActionMessage("Booking saved successfully.");
+    },
+    onError: (error) => {
+      console.error(error);
+      setFormError(error instanceof Error ? error.message : "Unable to save booking.");
+    },
+  });
+
+  const checkoutBookingMutation = useMutation({
+    mutationFn: checkoutBooking,
+    onSuccess: async (_, bookingId) => {
+      await refreshData();
+      const booking = bookings.find((item) => item.id === bookingId);
+      setActionMessage(booking ? `Booking ${booking.code} checked out. Room moved to cleaning.` : "Booking checked out.");
+    },
+    onError: (error) => {
+      console.error(error);
+      setActionMessage(error instanceof Error ? error.message : "Unable to check out booking.");
+    },
+  });
+
+  const cancelBookingMutation = useMutation({
+    mutationFn: cancelBooking,
+    onSuccess: async (_, bookingId) => {
+      await refreshData();
+      const booking = bookings.find((item) => item.id === bookingId);
+      setActionMessage(booking ? `Booking ${booking.code} cancelled.` : "Booking cancelled.");
+    },
+    onError: (error) => {
+      console.error(error);
+      setActionMessage(error instanceof Error ? error.message : "Unable to cancel booking.");
+    },
+  });
+
+  const setRoomAvailableMutation = useMutation({
+    mutationFn: setRoomAvailable,
+    onSuccess: async () => {
+      await refreshData();
+      setActionMessage("Room marked as available.");
+    },
+    onError: (error) => {
+      console.error(error);
+      setActionMessage(error instanceof Error ? error.message : "Unable to set room as available.");
+    },
   });
 
   useEffect(() => {
@@ -243,16 +297,20 @@ export function useBookingsManagement() {
   }, [bookings, calendarDays, roomById]);
 
   const openCreate = () => {
+    const nextState = createFormDefaults(rooms, operationDay);
     setFormError(null);
     setActionMessage(null);
-    setFormState(createFormDefaults(rooms, operationDay));
+    setFormState(nextState);
+    setInitialFormState(nextState);
     setIsFormOpen(true);
   };
 
   const openEdit = (booking: Booking) => {
+    const nextState = createFormFromBooking(booking);
     setFormError(null);
     setActionMessage(null);
-    setFormState(createFormFromBooking(booking));
+    setFormState(nextState);
+    setInitialFormState(nextState);
     setIsFormOpen(true);
   };
 
@@ -284,16 +342,7 @@ export function useBookingsManagement() {
       }
     }
 
-    void (async () => {
-      try {
-        await checkoutBooking(bookingId);
-        await refreshData();
-        setActionMessage(`Booking ${booking.code} checked out. Room moved to cleaning.`);
-      } catch (error) {
-        console.error(error);
-        setActionMessage(error instanceof Error ? error.message : "Unable to check out booking.");
-      }
-    })();
+    checkoutBookingMutation.mutate(bookingId);
   };
 
   const handleSetRoomAvailable = (roomId: string) => {
@@ -302,16 +351,7 @@ export function useBookingsManagement() {
       return;
     }
 
-    void (async () => {
-      try {
-        await setRoomAvailable(roomId);
-        await refreshData();
-        setActionMessage("Room marked as available.");
-      } catch (error) {
-        console.error(error);
-        setActionMessage(error instanceof Error ? error.message : "Unable to set room as available.");
-      }
-    })();
+    setRoomAvailableMutation.mutate(roomId);
   };
 
   const handleSaveBooking = () => {
@@ -341,47 +381,32 @@ export function useBookingsManagement() {
       return;
     }
 
-    void (async () => {
-      try {
-        await saveBooking({
-          id: formState.id,
-          guestName: formState.guestName.trim(),
-          guestPhone: formState.guestPhone.trim() || undefined,
-          guestIdNumber: formState.guestIdNumber.trim() || undefined,
-          handledBy: formState.handledBy.trim() || undefined,
-          roomId: formState.roomId,
-          status: formState.status,
-          checkInDate: formState.checkInDate,
-          checkOutDate: formState.checkOutDate,
-          paidAmount: parsedPaidAmount,
-          source: formState.source,
-        });
-
-        await refreshData();
-        setIsFormOpen(false);
-        setFormError(null);
-        setActionMessage("Booking saved successfully.");
-      } catch (error) {
-        console.error(error);
-        setFormError(error instanceof Error ? error.message : "Unable to save booking.");
-      }
-    })();
+    saveBookingMutation.mutate({
+      id: formState.id,
+      guestName: formState.guestName.trim(),
+      guestPhone: formState.guestPhone.trim() || undefined,
+      guestIdNumber: formState.guestIdNumber.trim() || undefined,
+      handledBy: formState.handledBy.trim() || undefined,
+      roomId: formState.roomId,
+      status: formState.status,
+      checkInDate: formState.checkInDate,
+      checkOutDate: formState.checkOutDate,
+      paidAmount: parsedPaidAmount,
+      source: formState.source,
+    });
   };
 
   const handleCancelBooking = (bookingId: string) => {
-    const booking = bookings.find((item) => item.id === bookingId);
-
-    void (async () => {
-      try {
-        await cancelBooking(bookingId);
-        await refreshData();
-        setActionMessage(booking ? `Booking ${booking.code} cancelled.` : "Booking cancelled.");
-      } catch (error) {
-        console.error(error);
-        setActionMessage(error instanceof Error ? error.message : "Unable to cancel booking.");
-      }
-    })();
+    cancelBookingMutation.mutate(bookingId);
   };
+
+  const pendingCheckoutBookingId = checkoutBookingMutation.variables;
+  const pendingCancelBookingId = cancelBookingMutation.variables;
+  const pendingAvailableRoomId = setRoomAvailableMutation.variables;
+  const isFormDirty = useMemo(
+    () => JSON.stringify(formState) !== JSON.stringify(initialFormState),
+    [formState, initialFormState],
+  );
 
   return {
     search,
@@ -400,6 +425,11 @@ export function useBookingsManagement() {
     formState,
     setFormState,
     formError,
+    isFormDirty,
+    isSavingBooking: saveBookingMutation.isPending,
+    pendingCheckoutBookingId,
+    pendingCancelBookingId,
+    pendingAvailableRoomId,
     viewMonth,
     setViewMonth,
     calendarDays,

@@ -1,4 +1,4 @@
-import { DataTable } from "@/components/ui";
+import { DataTable, SelectInput } from "@/components/ui";
 
 import {
   formatMoney,
@@ -42,15 +42,15 @@ export function PaymentsTableSection({
           className="h-10 w-full max-w-sm rounded-md border border-slate-200 px-3 text-sm text-slate-700"
         />
 
-        <select
+        <SelectInput
           value={methodFilter}
           onChange={(event) => updateUrlState({ method: event.target.value, page: 1 })}
-          className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
+          className="h-10 w-[10.5rem]"
         >
           <option value="all">All Methods</option>
           <option value="cash">Cash</option>
           <option value="mobile_money">Mobile Money</option>
-        </select>
+        </SelectInput>
       </div>
 
       <DataTable<(typeof paymentRows)[number]>

@@ -1,3 +1,5 @@
+import { SelectInput } from "./select-input";
+
 type PaginationProps = {
   page: number;
   totalPages: number;
@@ -79,18 +81,18 @@ export function Pagination({
         <label htmlFor="pagination-page-size" className="text-sm text-slate-600">
           Rows per page
         </label>
-        <select
+        <SelectInput
           id="pagination-page-size"
           value={pageSize}
           onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700"
+          className="h-9 w-[6.5rem] text-sm"
         >
           {normalizedPageSizeOptions.map((size) => (
             <option key={size} value={size}>
               {size}
             </option>
           ))}
-        </select>
+        </SelectInput>
       </div>
 
       <div className="flex flex-wrap items-center gap-1">

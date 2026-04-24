@@ -1,8 +1,8 @@
 import type { Room } from "@/data";
-import { DataTable, StatusBadge } from "@/components/ui";
+import { DataTable, LoadingSpinner, SelectInput, StatusBadge } from "@/components/ui";
 import { ROOM_STATUS_LABELS, type RoomStatus } from "@/lib/types/status";
 
-import { ROOM_STATUSES, roomTypeLabel, toCurrency } from "../hooks/use-rooms-management";
+import { ROOM_MUTABLE_STATUSES, ROOM_STATUSES, roomTypeLabel, toCurrency } from "../hooks/use-rooms-management";
 import type { RoomWithGuest } from "../services/rooms-service";
 
 type Props = {
@@ -14,6 +14,8 @@ type Props = {
   isLoading: boolean;
   canUpdateStatus: boolean;
   isAdmin: boolean;
+  isUpdatingRoomStatus: boolean;
+  pendingStatusRoomId?: string;
   totalPages: number;
   updateUrlState: (nextParams: Record<string, string | number | undefined>) => void;
   onStatusChange: (roomId: string, status: RoomStatus) => void;
@@ -30,6 +32,8 @@ export function RoomsTableSection({
   isLoading,
   canUpdateStatus,
   isAdmin,
+  isUpdatingRoomStatus,
+  pendingStatusRoomId,
   totalPages,
   updateUrlState,
   onStatusChange,
@@ -102,23 +106,32 @@ export function RoomsTableSection({
         <div className="flex flex-wrap items-center gap-2">
           {canUpdateStatus ? (
             <>
-              <select
+              <SelectInput
                 aria-label={`Change status for room ${room.number}`}
                 value={room.status}
                 onChange={(event) => onStatusChange(room.id, event.target.value as RoomStatus)}
-                className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700"
+                disabled={
+                  room.status === "occupied" ||
+                  (isUpdatingRoomStatus && pendingStatusRoomId === room.id)
+                }
+                className="h-9 w-[10.5rem] text-xs"
               >
-                {ROOM_STATUSES.map((status) => (
+                {room.status === "occupied" ? (
+                  <option value="occupied">{ROOM_STATUS_LABELS.occupied}</option>
+                ) : null}
+
+                {ROOM_MUTABLE_STATUSES.map((status) => (
                   <option key={status} value={status}>
                     {ROOM_STATUS_LABELS[status]}
                   </option>
                 ))}
-              </select>
+              </SelectInput>
 
               {isAdmin ? (
                 <button
                   type="button"
                   onClick={() => onEditRoom(room)}
+                  disabled={isUpdatingRoomStatus && pendingStatusRoomId === room.id}
                   className="h-9 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"
                 >
                   Edit
@@ -147,11 +160,11 @@ export function RoomsTableSection({
         <label htmlFor="status-filter" className="text-sm font-medium text-slate-700">
           Filter by status
         </label>
-        <select
+        <SelectInput
           id="status-filter"
           value={statusFilter}
           onChange={(event) => updateUrlState({ status: event.target.value, page: 1 })}
-          className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
+          className="h-10 w-[10.5rem]"
         >
           <option value="all">All statuses</option>
           {ROOM_STATUSES.map((status) => (
@@ -159,7 +172,7 @@ export function RoomsTableSection({
               {ROOM_STATUS_LABELS[status]}
             </option>
           ))}
-        </select>
+        </SelectInput>
       </div>
 
       <DataTable<Room>

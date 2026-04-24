@@ -1,5 +1,5 @@
 import type { Booking, Room } from "@/data";
-import { DataTable } from "@/components/ui";
+import { DataTable, LoadingSpinner, SelectInput } from "@/components/ui";
 
 import {
   bookingStatusLabel,
@@ -19,6 +19,9 @@ type Props = {
   isLoading: boolean;
   totalPages: number;
   actionMessage: string | null;
+  pendingCheckoutBookingId?: string;
+  pendingCancelBookingId?: string;
+  pendingAvailableRoomId?: string;
   updateUrlState: (nextParams: Record<string, string | number | undefined>) => void;
   onCheckoutBooking: (bookingId: string) => void;
   onEditBooking: (booking: Booking) => void;
@@ -36,6 +39,9 @@ export function BookingsTableSection({
   isLoading,
   totalPages,
   actionMessage,
+  pendingCheckoutBookingId,
+  pendingCancelBookingId,
+  pendingAvailableRoomId,
   updateUrlState,
   onCheckoutBooking,
   onEditBooking,
@@ -53,16 +59,16 @@ export function BookingsTableSection({
           className="h-10 w-full max-w-sm rounded-md border border-slate-200 px-3 text-sm text-slate-700"
         />
 
-        <select
+        <SelectInput
           value={statusFilter}
           onChange={(event) => updateUrlState({ status: event.target.value, page: 1 })}
-          className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700"
+          className="h-10 w-[10.5rem]"
         >
           <option value="all">All statuses</option>
           <option value="confirmed">Confirmed</option>
           <option value="pending">Pending</option>
           <option value="cancelled">Cancelled</option>
-        </select>
+        </SelectInput>
       </div>
 
       <DataTable<Booking>
@@ -126,17 +132,33 @@ export function BookingsTableSection({
             align: "right",
             render: (booking) => (
               <div className="flex justify-end gap-2">
+                {(() => {
+                  const isCheckoutPending = pendingCheckoutBookingId === booking.id;
+                  const isCancelPending = pendingCancelBookingId === booking.id;
+                  const isAvailablePending = pendingAvailableRoomId === booking.roomId;
+                  const isRowBusy = isCheckoutPending || isCancelPending || isAvailablePending;
+
+                  return (
+                    <>
                 <button
                   type="button"
                   onClick={() => onCheckoutBooking(booking.id)}
-                  disabled={booking.status === "cancelled"}
+                  disabled={booking.status === "cancelled" || isRowBusy}
                   className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Check-out
+                  {isCheckoutPending ? (
+                    <span className="inline-flex items-center gap-2">
+                      <LoadingSpinner className="h-3 w-3" />
+                      Checking out...
+                    </span>
+                  ) : (
+                    "Check-out"
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={() => onEditBooking(booking)}
+                  disabled={isRowBusy}
                   className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"
                 >
                   Edit
@@ -144,20 +166,38 @@ export function BookingsTableSection({
                 <button
                   type="button"
                   onClick={() => onCancelBooking(booking.id)}
-                  disabled={booking.status === "cancelled"}
+                  disabled={booking.status === "cancelled" || isRowBusy}
                   className="h-8 rounded-md border border-rose-200 px-3 text-xs font-medium text-rose-700 enabled:hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Cancel
+                  {isCancelPending ? (
+                    <span className="inline-flex items-center gap-2">
+                      <LoadingSpinner className="h-3 w-3" />
+                      Cancelling...
+                    </span>
+                  ) : (
+                    "Cancel"
+                  )}
                 </button>
                 {roomById.get(booking.roomId)?.status === "cleaning" ? (
                   <button
                     type="button"
                     onClick={() => onSetRoomAvailable(booking.roomId)}
+                    disabled={isRowBusy}
                     className="h-8 rounded-md border border-emerald-200 px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
                   >
-                    Set Available
+                    {isAvailablePending ? (
+                      <span className="inline-flex items-center gap-2">
+                        <LoadingSpinner className="h-3 w-3" />
+                        Updating...
+                      </span>
+                    ) : (
+                      "Set Available"
+                    )}
                   </button>
                 ) : null}
+                    </>
+                  );
+                })()}
               </div>
             ),
           },

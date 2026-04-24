@@ -24,6 +24,11 @@ export function BookingsManagement() {
     formState,
     setFormState,
     formError,
+    isFormDirty,
+    isSavingBooking,
+    pendingCheckoutBookingId,
+    pendingCancelBookingId,
+    pendingAvailableRoomId,
     viewMonth,
     setViewMonth,
     calendarDays,
@@ -77,6 +82,9 @@ export function BookingsManagement() {
         isLoading={isLoading}
         totalPages={pageMeta?.totalPages ?? 0}
         actionMessage={actionMessage}
+        pendingCheckoutBookingId={pendingCheckoutBookingId}
+        pendingCancelBookingId={pendingCancelBookingId}
+        pendingAvailableRoomId={pendingAvailableRoomId}
         updateUrlState={updateUrlState}
         onCheckoutBooking={handleCheckoutBooking}
         onEditBooking={openEdit}
@@ -102,6 +110,8 @@ export function BookingsManagement() {
         rooms={rooms}
         formState={formState}
         formError={formError}
+        isDirty={isFormDirty}
+        isSaving={isSavingBooking}
         onClose={closeForm}
         onSave={handleSaveBooking}
         onFormStateChange={setFormState}

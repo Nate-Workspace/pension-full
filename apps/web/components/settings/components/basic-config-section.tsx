@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
+import { LoadingSpinner } from "@/components/ui";
 import type { BasicConfigForm } from "../services/settings-service";
 
 type Props = {
@@ -95,7 +96,14 @@ export function BasicConfigSection({ basicConfig, isLoading, isSavingConfig, onC
           disabled={isLoading || isSavingConfig}
           className="h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
         >
-          Save Configuration
+          {isSavingConfig ? (
+            <span className="inline-flex items-center gap-2">
+              <LoadingSpinner className="h-3.5 w-3.5" />
+              Saving...
+            </span>
+          ) : (
+            "Save Configuration"
+          )}
         </button>
       </div>
     </section>

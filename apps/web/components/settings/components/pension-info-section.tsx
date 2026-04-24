@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
+import { LoadingSpinner } from "@/components/ui";
 import type { PensionInfoForm } from "../services/settings-service";
 
 type Props = {
@@ -92,7 +93,14 @@ export function PensionInfoSection({ pensionInfo, isLoading, isSavingProfile, on
           disabled={isLoading || isSavingProfile}
           className="h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
         >
-          Save Profile
+          {isSavingProfile ? (
+            <span className="inline-flex items-center gap-2">
+              <LoadingSpinner className="h-3.5 w-3.5" />
+              Saving...
+            </span>
+          ) : (
+            "Save Profile"
+          )}
         </button>
       </div>
     </div>

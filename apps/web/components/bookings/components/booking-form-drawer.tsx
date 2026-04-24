@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { Booking, BookingStatus, Room } from "@/data";
-import { FormSurface } from "@/components/ui";
+import { FormSurface, LoadingSpinner, SelectInput } from "@/components/ui";
 
 import type { BookingFormState } from "../hooks/use-bookings-management";
 
@@ -9,37 +9,61 @@ type Props = {
   rooms: Room[];
   formState: BookingFormState;
   formError: string | null;
+  isDirty: boolean;
+  isSaving: boolean;
   onClose: () => void;
   onSave: () => void;
   onFormStateChange: Dispatch<SetStateAction<BookingFormState>>;
 };
 
-export function BookingFormDrawer({ isOpen, rooms, formState, formError, onClose, onSave, onFormStateChange }: Props) {
+export function BookingFormDrawer({
+  isOpen,
+  rooms,
+  formState,
+  formError,
+  isDirty,
+  isSaving,
+  onClose,
+  onSave,
+  onFormStateChange,
+}: Props) {
   return (
     <FormSurface
       open={isOpen}
       onClose={onClose}
       mode="drawer"
+      isDirty={isDirty}
       title={formState.id ? "Edit Booking" : "Create Booking"}
       description="Update reservation details and status."
-      footer={
+      footer={({ requestClose }) => (
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
+            disabled={isSaving}
             className="h-10 rounded-md border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-100"
           >
-            Cancel
+            {formState.id ? "Close" : "Cancel"}
           </button>
           <button
             type="button"
             onClick={onSave}
+            disabled={isSaving}
             className="h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
           >
-            {formState.id ? "Save Changes" : "Create Booking"}
+            {isSaving ? (
+              <span className="inline-flex items-center gap-2">
+                <LoadingSpinner className="h-3.5 w-3.5" />
+                Saving...
+              </span>
+            ) : formState.id ? (
+              "Save Changes"
+            ) : (
+              "Create Booking"
+            )}
           </button>
         </div>
-      }
+      )}
     >
       <div className="space-y-4">
         <label className="space-y-1">
@@ -48,6 +72,7 @@ export function BookingFormDrawer({ isOpen, rooms, formState, formError, onClose
             type="text"
             value={formState.guestName}
             onChange={(event) => onFormStateChange((prev) => ({ ...prev, guestName: event.target.value }))}
+            disabled={isSaving}
             className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
           />
         </label>
@@ -58,6 +83,7 @@ export function BookingFormDrawer({ isOpen, rooms, formState, formError, onClose
             type="text"
             value={formState.handledBy}
             onChange={(event) => onFormStateChange((prev) => ({ ...prev, handledBy: event.target.value }))}
+            disabled={isSaving}
             className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
             placeholder="e.g. Front Desk A"
           />
@@ -70,6 +96,7 @@ export function BookingFormDrawer({ isOpen, rooms, formState, formError, onClose
               type="text"
               value={formState.guestPhone}
               onChange={(event) => onFormStateChange((prev) => ({ ...prev, guestPhone: event.target.value }))}
+              disabled={isSaving}
               className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
             />
           </label>
@@ -80,6 +107,7 @@ export function BookingFormDrawer({ isOpen, rooms, formState, formError, onClose
               type="text"
               value={formState.guestIdNumber}
               onChange={(event) => onFormStateChange((prev) => ({ ...prev, guestIdNumber: event.target.value }))}
+              disabled={isSaving}
               className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
             />
           </label>
@@ -87,17 +115,18 @@ export function BookingFormDrawer({ isOpen, rooms, formState, formError, onClose
 
         <label className="space-y-1">
           <span className="text-sm font-medium text-slate-700">Room</span>
-          <select
+          <SelectInput
             value={formState.roomId}
             onChange={(event) => onFormStateChange((prev) => ({ ...prev, roomId: event.target.value }))}
-            className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800"
+            disabled={isSaving}
+            className="h-10 w-full"
           >
             {rooms.map((room) => (
               <option key={room.id} value={room.id}>
                 Room {room.number} ({room.type})
               </option>
             ))}
-          </select>
+          </SelectInput>
         </label>
 
         <div className="grid grid-cols-2 gap-3">
@@ -107,6 +136,7 @@ export function BookingFormDrawer({ isOpen, rooms, formState, formError, onClose
               type="date"
               value={formState.checkInDate}
               onChange={(event) => onFormStateChange((prev) => ({ ...prev, checkInDate: event.target.value }))}
+              disabled={isSaving}
               className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
             />
           </label>
@@ -117,6 +147,7 @@ export function BookingFormDrawer({ isOpen, rooms, formState, formError, onClose
               type="date"
               value={formState.checkOutDate}
               onChange={(event) => onFormStateChange((prev) => ({ ...prev, checkOutDate: event.target.value }))}
+              disabled={isSaving}
               className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
             />
           </label>
@@ -125,15 +156,16 @@ export function BookingFormDrawer({ isOpen, rooms, formState, formError, onClose
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-1">
             <span className="text-sm font-medium text-slate-700">Status</span>
-            <select
+            <SelectInput
               value={formState.status}
               onChange={(event) => onFormStateChange((prev) => ({ ...prev, status: event.target.value as BookingStatus }))}
-              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800"
+              disabled={isSaving}
+              className="h-10 w-full"
             >
               <option value="confirmed">Confirmed</option>
               <option value="pending">Pending</option>
               <option value="cancelled">Cancelled</option>
-            </select>
+            </SelectInput>
           </label>
 
           <label className="space-y-1">
@@ -143,22 +175,24 @@ export function BookingFormDrawer({ isOpen, rooms, formState, formError, onClose
               min={0}
               value={formState.paidAmount}
               onChange={(event) => onFormStateChange((prev) => ({ ...prev, paidAmount: event.target.value }))}
+              disabled={isSaving}
               className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-800"
             />
           </label>
 
           <label className="space-y-1">
             <span className="text-sm font-medium text-slate-700">Source</span>
-            <select
+            <SelectInput
               value={formState.source}
               onChange={(event) => onFormStateChange((prev) => ({ ...prev, source: event.target.value as Booking["source"] }))}
-              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800"
+              disabled={isSaving}
+              className="h-10 w-full"
             >
               <option value="walk-in">Walk-in</option>
               <option value="phone">Phone</option>
               <option value="website">Website</option>
               <option value="agent">Agent</option>
-            </select>
+            </SelectInput>
           </label>
         </div>
 

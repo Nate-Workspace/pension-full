@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 
 import type { Room, RoomType } from "@/data";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -27,6 +28,7 @@ export type RoomFormState = {
 
 export const ROOM_TYPES: RoomType[] = ["single", "double", "vip"];
 export const ROOM_STATUSES: RoomStatus[] = ["available", "occupied", "cleaning", "maintenance"];
+export const ROOM_MUTABLE_STATUSES: RoomStatus[] = ["available", "cleaning", "maintenance"];
 
 export function roomTypeLabel(type: RoomType): string {
   if (type === "vip") {
@@ -115,8 +117,32 @@ export function useRoomsManagement() {
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [formState, setFormState] = useState<RoomFormState>(createDefaultFormState());
+  const [initialFormState, setInitialFormState] = useState<RoomFormState>(createDefaultFormState());
   const [formError, setFormError] = useState<string | null>(null);
   const canUpdateStatus = user?.role === "admin" || user?.role === "staff";
+
+  const updateRoomStatusMutation = useMutation({
+    mutationFn: ({ roomId, status }: { roomId: string; status: RoomStatus }) => updateRoomStatus(roomId, status),
+    onSuccess: async () => {
+      await refreshRooms();
+    },
+    onError: (error) => {
+      console.error(error);
+    },
+  });
+
+  const saveRoomMutation = useMutation({
+    mutationFn: saveRoom,
+    onSuccess: async () => {
+      await refreshRooms();
+      setIsDrawerOpen(false);
+      setFormError(null);
+    },
+    onError: (saveError) => {
+      console.error(saveError);
+      setFormError(saveError instanceof Error ? saveError.message : "Unable to save room.");
+    },
+  });
 
   const metrics = useMemo(() => {
     const occupiedCount = rooms.filter((room) => room.status === "occupied").length;
@@ -132,14 +158,18 @@ export function useRoomsManagement() {
   }, [rooms]);
 
   const openAddDrawer = () => {
+    const defaults = createDefaultFormState();
     setFormError(null);
-    setFormState(createDefaultFormState());
+    setFormState(defaults);
+    setInitialFormState(defaults);
     setIsDrawerOpen(true);
   };
 
   const openEditDrawer = (room: Room) => {
+    const nextState = createFormStateFromRoom(room);
     setFormError(null);
-    setFormState(createFormStateFromRoom(room));
+    setFormState(nextState);
+    setInitialFormState(nextState);
     setIsDrawerOpen(true);
   };
 
@@ -148,15 +178,13 @@ export function useRoomsManagement() {
     setFormError(null);
   };
 
+  const isFormDirty = useMemo(
+    () => JSON.stringify(formState) !== JSON.stringify(initialFormState),
+    [formState, initialFormState],
+  );
+
   const handleStatusChange = (roomId: string, status: RoomStatus) => {
-    void (async () => {
-      try {
-        await updateRoomStatus(roomId, status);
-        await refreshRooms();
-      } catch (error) {
-        console.error(error);
-      }
-    })();
+    updateRoomStatusMutation.mutate({ roomId, status });
   };
 
   const handleSaveRoom = () => {
@@ -172,28 +200,19 @@ export function useRoomsManagement() {
     const pricePerNight = Number(formState.pricePerNight);
     const assignedTo = formState.assignedTo.trim().length > 0 ? formState.assignedTo.trim() : null;
 
-    void (async () => {
-      try {
-        await saveRoom({
-          id: formState.id,
-          number: formState.number.trim(),
-          floor,
-          type: formState.type,
-          status: formState.status,
-          capacity,
-          pricePerNight,
-          assignedTo,
-        });
-
-        await refreshRooms();
-        setIsDrawerOpen(false);
-        setFormError(null);
-      } catch (saveError) {
-        console.error(saveError);
-        setFormError(saveError instanceof Error ? saveError.message : "Unable to save room.");
-      }
-    })();
+    saveRoomMutation.mutate({
+      id: formState.id,
+      number: formState.number.trim(),
+      floor,
+      type: formState.type,
+      status: formState.status,
+      capacity,
+      pricePerNight,
+      assignedTo,
+    });
   };
+
+  const pendingStatusRoomId = updateRoomStatusMutation.variables?.roomId;
 
   return {
     isAdmin,
@@ -211,6 +230,10 @@ export function useRoomsManagement() {
     formState,
     setFormState,
     formError,
+    isFormDirty,
+    isSavingRoom: saveRoomMutation.isPending,
+    isUpdatingRoomStatus: updateRoomStatusMutation.isPending,
+    pendingStatusRoomId,
     updateUrlState,
     openAddDrawer,
     openEditDrawer,
@@ -246,6 +269,10 @@ export function useRoomsManagement() {
     formState: RoomFormState;
     setFormState: Dispatch<SetStateAction<RoomFormState>>;
     formError: string | null;
+    isFormDirty: boolean;
+    isSavingRoom: boolean;
+    isUpdatingRoomStatus: boolean;
+    pendingStatusRoomId: string | undefined;
     updateUrlState: (nextParams: Record<string, string | number | undefined>) => void;
     openAddDrawer: () => void;
     openEditDrawer: (room: Room) => void;

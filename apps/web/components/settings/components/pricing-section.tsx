@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
+import { LoadingSpinner } from "@/components/ui";
 import type { RoomPricingForm } from "../services/settings-service";
 import { toCurrency } from "../services/settings-service";
 
@@ -78,7 +79,14 @@ export function PricingSection({
           disabled={isLoading || isSavingPricing}
           className="h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
         >
-          Save Pricing
+          {isSavingPricing ? (
+            <span className="inline-flex items-center gap-2">
+              <LoadingSpinner className="h-3.5 w-3.5" />
+              Saving...
+            </span>
+          ) : (
+            "Save Pricing"
+          )}
         </button>
       </div>
     </div>
