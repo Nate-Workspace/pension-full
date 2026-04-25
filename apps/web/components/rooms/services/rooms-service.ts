@@ -92,6 +92,28 @@ export async function fetchRooms(params: {
   return rows.map(mapApiRoomToUiRoom);
 }
 
+export async function fetchRoomById(roomId: string, operationDay?: string): Promise<RoomWithGuest> {
+  const query = buildQueryString({ operationDay });
+  const response = await apiFetch(`/rooms/${roomId}${query.length > 0 ? `?${query}` : ""}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error("Room not found.");
+    }
+
+    throw new Error(`Failed to load room details (${response.status}).`);
+  }
+
+  const payload = (await response.json()) as RoomWithGuest;
+  return mapApiRoomToUiRoom(payload);
+}
+
 export async function fetchPagedRooms(params: {
   page: number;
   pageSize: number;

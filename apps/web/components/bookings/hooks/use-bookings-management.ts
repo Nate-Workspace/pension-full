@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import type { Booking, BookingStatus, Room } from "@/data";
 import { diffNights, isBookingActiveOn, parseIsoDate, toIsoDate } from "@/lib/operations";
@@ -159,6 +159,7 @@ function byId<T extends { id: string }>(items: T[]): Map<string, T> {
 }
 
 export function useBookingsManagement() {
+  const queryClient = useQueryClient();
   const {
     operationDay,
     search,
@@ -185,10 +186,25 @@ export function useBookingsManagement() {
     return startOfMonthUTC(day.getUTCFullYear(), day.getUTCMonth());
   });
 
+  const invalidateRoomRelatedQueries = async (roomIds: string[]) => {
+    const uniqueRoomIds = [...new Set(roomIds.filter((roomId) => roomId.trim().length > 0))];
+
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["rooms"] }),
+      ...uniqueRoomIds.flatMap((id) => [
+        queryClient.invalidateQueries({ queryKey: ["room", id] }),
+        queryClient.invalidateQueries({ queryKey: ["room-bookings", id] }),
+      ]),
+    ]);
+  };
+
   const saveBookingMutation = useMutation({
     mutationFn: saveBooking,
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
+      const previousRoomId = variables.id ? bookings.find((item) => item.id === variables.id)?.roomId : undefined;
+
       await refreshData();
+      await invalidateRoomRelatedQueries([variables.roomId, previousRoomId ?? ""]);
       setIsFormOpen(false);
       setFormError(null);
       setActionMessage("Booking saved successfully.");
@@ -202,8 +218,9 @@ export function useBookingsManagement() {
   const checkoutBookingMutation = useMutation({
     mutationFn: checkoutBooking,
     onSuccess: async (_, bookingId) => {
-      await refreshData();
       const booking = bookings.find((item) => item.id === bookingId);
+      await refreshData();
+      await invalidateRoomRelatedQueries(booking?.roomId ? [booking.roomId] : []);
       setActionMessage(booking ? `Booking ${booking.code} checked out. Room moved to cleaning.` : "Booking checked out.");
     },
     onError: (error) => {
@@ -215,8 +232,9 @@ export function useBookingsManagement() {
   const cancelBookingMutation = useMutation({
     mutationFn: cancelBooking,
     onSuccess: async (_, bookingId) => {
-      await refreshData();
       const booking = bookings.find((item) => item.id === bookingId);
+      await refreshData();
+      await invalidateRoomRelatedQueries(booking?.roomId ? [booking.roomId] : []);
       setActionMessage(booking ? `Booking ${booking.code} cancelled.` : "Booking cancelled.");
     },
     onError: (error) => {
@@ -227,8 +245,9 @@ export function useBookingsManagement() {
 
   const setRoomAvailableMutation = useMutation({
     mutationFn: setRoomAvailable,
-    onSuccess: async () => {
+    onSuccess: async (_, roomId) => {
       await refreshData();
+      await invalidateRoomRelatedQueries([roomId]);
       setActionMessage("Room marked as available.");
     },
     onError: (error) => {

@@ -65,6 +65,20 @@ type RoomListQuery = ListRoomsQueryInput;
 
 @Injectable()
 export class RoomsService {
+  async getRoomById(id: string, operationDay?: string): Promise<RoomResponseRow> {
+    const room = await this.findRoomById(id);
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    const resolvedOperationDay =
+      this.normalizeOperationDay(operationDay) ?? this.getCurrentOperationDay();
+    const activeBooking = await this.findActiveBookingForRoom(id, resolvedOperationDay);
+
+    return this.toRoomResponse(room, activeBooking);
+  }
+
   async listRooms(query: RoomListQuery): Promise<RoomListResponse> {
     const parsed = this.parseSchema<ListRoomsQueryInput>(listRoomsQuerySchema, query);
     const resolvedOperationDay = parsed.operationDay ?? this.getCurrentOperationDay();

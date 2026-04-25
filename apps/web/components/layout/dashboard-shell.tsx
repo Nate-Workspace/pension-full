@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { AUTH_QUERY_KEY, useAuth } from "@/components/providers/auth-provider";
+import { ConfirmDialog } from "@/components/ui";
 import { apiFetch } from "@/lib/api-client";
 import { dashboardNavigation } from "@/lib/navigation";
 
@@ -23,12 +24,13 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const visibleNavigation = isAdmin
     ? dashboardNavigation
     : dashboardNavigation.filter((item) => item.href !== '/settings' && item.href !== '/reports');
 
-  const handleLogout = () => {
+  const performLogout = () => {
     void (async () => {
       if (isLoggingOut) {
         return;
@@ -57,6 +59,14 @@ export function DashboardShell({ children }: DashboardShellProps) {
         setIsLoggingOut(false);
       }
     })();
+  };
+
+  const handleLogout = () => {
+    if (isLoggingOut) {
+      return;
+    }
+
+    setShowLogoutConfirm(true);
   };
 
   return (
@@ -96,6 +106,25 @@ export function DashboardShell({ children }: DashboardShellProps) {
         />
         <main className="min-h-[calc(100vh-4rem)] p-4 sm:p-6">{children}</main>
       </div>
+
+      <ConfirmDialog
+        open={showLogoutConfirm}
+        title="Confirm Logout"
+        description="Are you sure you want to log out of this account?"
+        cancelText="Cancel"
+        confirmText={isLoggingOut ? "Logging out..." : "Logout"}
+        onCancel={() => {
+          if (isLoggingOut) {
+            return;
+          }
+
+          setShowLogoutConfirm(false);
+        }}
+        onConfirm={() => {
+          setShowLogoutConfirm(false);
+          performLogout();
+        }}
+      />
     </div>
   );
 }
