@@ -28,7 +28,6 @@ export function BookingsManagement() {
     isSavingBooking,
     pendingCheckoutBookingId,
     pendingCancelBookingId,
-    pendingAvailableRoomId,
     viewMonth,
     setViewMonth,
     calendarDays,
@@ -38,7 +37,6 @@ export function BookingsManagement() {
     openEdit,
     closeForm,
     handleCheckoutBooking,
-    handleSetRoomAvailable,
     handleSaveBooking,
     handleCancelBooking,
     getMonthLabel,
@@ -66,9 +64,10 @@ export function BookingsManagement() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard title="Total Bookings" value={String(metrics.total)} />
-        <MetricCard title="Confirmed" value={String(metrics.confirmed)} />
-        <MetricCard title="Pending" value={String(metrics.pending)} />
-        <MetricCard title="Cancelled" value={String(metrics.cancelled)} />
+        <MetricCard title="Active" value={String(metrics.active)} />
+        <MetricCard title="Upcoming" value={String(metrics.upcoming)} />
+        <MetricCard title="Checked Out" value={String(metrics.checkedOut)} />
+        <MetricCard title="Canceled" value={String(metrics.canceled)} />
         <MetricCard title="Booked Revenue" value={formatMoney(metrics.monthRevenue)} />
       </section>
 
@@ -84,12 +83,10 @@ export function BookingsManagement() {
         actionMessage={actionMessage}
         pendingCheckoutBookingId={pendingCheckoutBookingId}
         pendingCancelBookingId={pendingCancelBookingId}
-        pendingAvailableRoomId={pendingAvailableRoomId}
         updateUrlState={updateUrlState}
         onCheckoutBooking={handleCheckoutBooking}
         onEditBooking={openEdit}
         onCancelBooking={handleCancelBooking}
-        onSetRoomAvailable={handleSetRoomAvailable}
       />
 
       <ReservationCalendarSection

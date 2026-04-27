@@ -66,7 +66,7 @@ export class ReportsService {
         COUNT(DISTINCT b."id")::text AS occupied_count
       FROM generate_series(${startDate}::date, ${endDate}::date, interval '1 day') AS day
       LEFT JOIN "bookings" b
-        ON b."status" <> 'cancelled'
+        ON b."isCanceled" = false
        AND b."checkInDate"::date <= day::date
        AND b."checkOutDate"::date > day::date
       GROUP BY day
@@ -83,7 +83,7 @@ export class ReportsService {
        AND p."paidAt"::date = day::date
       LEFT JOIN "bookings" b
         ON b."id" = p."bookingId"
-       AND b."status" <> 'cancelled'
+       AND b."isCanceled" = false
       GROUP BY day
       ORDER BY day
     `);
@@ -96,7 +96,7 @@ export class ReportsService {
         FROM "rooms" r
         LEFT JOIN "bookings" b
           ON b."roomId" = r."id"
-         AND b."status" <> 'cancelled'
+         AND b."isCanceled" = false
         LEFT JOIN "payments" p
           ON p."bookingId" = b."id"
          AND p."paidAt" IS NOT NULL
@@ -113,7 +113,7 @@ export class ReportsService {
         FROM "bookings" b
         INNER JOIN "rooms" r
           ON r."id" = b."roomId"
-        WHERE b."status" <> 'cancelled'
+        WHERE b."isCanceled" = false
           AND b."checkInDate"::date <= ${endDate}::date
           AND b."checkOutDate"::date > ${startDate}::date
         GROUP BY r."id", r."number"
@@ -127,7 +127,7 @@ export class ReportsService {
         EXTRACT(DOW FROM b."checkInDate"::date)::text AS dow,
         COUNT(*)::text AS count
       FROM "bookings" b
-      WHERE b."status" <> 'cancelled'
+      WHERE b."isCanceled" = false
         AND b."checkInDate"::date BETWEEN ${startDate}::date AND ${endDate}::date
       GROUP BY EXTRACT(DOW FROM b."checkInDate"::date)
     `);

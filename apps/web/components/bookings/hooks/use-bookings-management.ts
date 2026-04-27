@@ -2,12 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import type { Booking, BookingStatus, Room } from "@/data";
-import { diffNights, isBookingActiveOn, parseIsoDate, toIsoDate } from "@/lib/operations";
+import { diffNights, parseIsoDate, toIsoDate } from "@/lib/operations";
 import {
   cancelBooking,
   checkoutBooking,
   saveBooking,
-  setRoomAvailable,
 } from "../services/bookings-service";
 import { useBookings } from "./use-bookings";
 
@@ -18,7 +17,6 @@ export type BookingFormState = {
   guestIdNumber: string;
   handledBy: string;
   roomId: string;
-  status: BookingStatus;
   checkInDate: string;
   checkOutDate: string;
   paidAmount: string;
@@ -54,27 +52,59 @@ export function formatMoney(value: number): string {
 }
 
 export function bookingStatusLabel(status: BookingStatus): string {
-  if (status === "confirmed") {
-    return "Confirmed";
+  if (status === "active") {
+    return "Active";
   }
 
-  if (status === "pending") {
-    return "Pending";
+  if (status === "upcoming") {
+    return "Upcoming";
   }
 
-  return "Cancelled";
+  if (status === "checked_out") {
+    return "Checked Out";
+  }
+
+  return "Canceled";
 }
 
 export function bookingStatusStyle(status: BookingStatus): string {
-  if (status === "confirmed") {
+  if (status === "active") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
 
-  if (status === "pending") {
+  if (status === "upcoming") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  if (status === "checked_out") {
+    return "border-slate-200 bg-slate-100 text-slate-600";
+  }
+
+  return "border-rose-200 bg-rose-50 text-rose-700";
+}
+
+export function paymentStatusStyle(status: Booking["paymentStatus"]): string {
+  if (status === "paid") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+
+  if (status === "partial") {
     return "border-amber-200 bg-amber-50 text-amber-700";
   }
 
   return "border-rose-200 bg-rose-50 text-rose-700";
+}
+
+export function paymentStatusLabel(status: Booking["paymentStatus"]): string {
+  if (status === "paid") {
+    return "Paid";
+  }
+
+  if (status === "partial") {
+    return "Partial";
+  }
+
+  return "Unpaid";
 }
 
 function addIsoDays(isoDate: string, days: number): string {
@@ -92,7 +122,6 @@ function createFormDefaults(roomList: Room[], operationDay?: string): BookingFor
     guestIdNumber: "",
     handledBy: "",
     roomId: roomList[0]?.id ?? "",
-    status: "confirmed",
     checkInDate,
     checkOutDate: addIsoDays(checkInDate, 2),
     paidAmount: "0",
@@ -108,7 +137,6 @@ function createFormFromBooking(booking: Booking): BookingFormState {
     guestIdNumber: booking.guest.idNumber ?? "",
     handledBy: booking.handledBy ?? "",
     roomId: booking.roomId,
-    status: booking.status,
     checkInDate: booking.checkInDate,
     checkOutDate: booking.checkOutDate,
     paidAmount: String(booking.paidAmount),
@@ -235,24 +263,11 @@ export function useBookingsManagement() {
       const booking = bookings.find((item) => item.id === bookingId);
       await refreshData();
       await invalidateRoomRelatedQueries(booking?.roomId ? [booking.roomId] : []);
-      setActionMessage(booking ? `Booking ${booking.code} cancelled.` : "Booking cancelled.");
+      setActionMessage(booking ? `Booking ${booking.code} canceled. Room moved to available.` : "Booking canceled.");
     },
     onError: (error) => {
       console.error(error);
       setActionMessage(error instanceof Error ? error.message : "Unable to cancel booking.");
-    },
-  });
-
-  const setRoomAvailableMutation = useMutation({
-    mutationFn: setRoomAvailable,
-    onSuccess: async (_, roomId) => {
-      await refreshData();
-      await invalidateRoomRelatedQueries([roomId]);
-      setActionMessage("Room marked as available.");
-    },
-    onError: (error) => {
-      console.error(error);
-      setActionMessage(error instanceof Error ? error.message : "Unable to set room as available.");
     },
   });
 
@@ -266,19 +281,26 @@ export function useBookingsManagement() {
   const roomById = useMemo(() => byId<Room>(rooms), [rooms]);
 
   const metrics = useMemo(() => {
-    const confirmed = bookings.filter((booking) => booking.status === "confirmed").length;
-    const pending = bookings.filter((booking) => booking.status === "pending").length;
-    const cancelled = bookings.filter((booking) => booking.status === "cancelled").length;
+    const active = bookings.filter((booking) => booking.status === "active").length;
+    const upcoming = bookings.filter((booking) => booking.status === "upcoming").length;
+    const checkedOut = bookings.filter((booking) => booking.status === "checked_out").length;
+    const canceled = bookings.filter((booking) => booking.status === "canceled" || booking.status === "cancelled").length;
     const monthPrefix = operationDay.slice(0, 7);
     const monthRevenue = bookings
-      .filter((booking) => booking.status === "confirmed" && booking.checkInDate.startsWith(monthPrefix))
+      .filter(
+        (booking) =>
+          booking.status !== "canceled" &&
+          booking.status !== "cancelled" &&
+          booking.checkInDate.startsWith(monthPrefix),
+      )
       .reduce((sum, booking) => sum + booking.totalAmount, 0);
 
     return {
       total: bookings.length,
-      confirmed,
-      pending,
-      cancelled,
+      active,
+      upcoming,
+      checkedOut,
+      canceled,
       monthRevenue,
     };
   }, [bookings, operationDay]);
@@ -289,7 +311,7 @@ export function useBookingsManagement() {
     const map = new Map<string, CalendarReservation[]>();
 
     bookings.forEach((booking) => {
-      if (booking.status === "cancelled") {
+      if (booking.status === "canceled" || booking.status === "cancelled") {
         return;
       }
 
@@ -346,31 +368,22 @@ export function useBookingsManagement() {
       return;
     }
 
-    if (booking.status === "cancelled") {
-      setActionMessage("Cancelled bookings cannot be checked out.");
+    if (booking.status === "canceled" || booking.status === "cancelled") {
+      setActionMessage("Canceled bookings cannot be checked out.");
       return;
     }
 
-    if (booking.remainingAmount > 0) {
-      const shouldProceed = window.confirm(
-        `This booking has an unpaid balance of ${formatMoney(booking.remainingAmount)}. Continue checkout?`,
-      );
+    if (booking.status === "checked_out") {
+      setActionMessage("This booking is already checked out.");
+      return;
+    }
 
-      if (!shouldProceed) {
-        return;
-      }
+    if (booking.status === "upcoming") {
+      setActionMessage("Only active bookings can be checked out.");
+      return;
     }
 
     checkoutBookingMutation.mutate(bookingId);
-  };
-
-  const handleSetRoomAvailable = (roomId: string) => {
-    if (bookings.some((booking) => booking.roomId === roomId && isBookingActiveOn(operationDay, booking))) {
-      setActionMessage("Room cannot be set to available while an active booking exists.");
-      return;
-    }
-
-    setRoomAvailableMutation.mutate(roomId);
   };
 
   const handleSaveBooking = () => {
@@ -407,7 +420,6 @@ export function useBookingsManagement() {
       guestIdNumber: formState.guestIdNumber.trim() || undefined,
       handledBy: formState.handledBy.trim() || undefined,
       roomId: formState.roomId,
-      status: formState.status,
       checkInDate: formState.checkInDate,
       checkOutDate: formState.checkOutDate,
       paidAmount: parsedPaidAmount,
@@ -421,7 +433,6 @@ export function useBookingsManagement() {
 
   const pendingCheckoutBookingId = checkoutBookingMutation.variables;
   const pendingCancelBookingId = cancelBookingMutation.variables;
-  const pendingAvailableRoomId = setRoomAvailableMutation.variables;
   const isFormDirty = useMemo(
     () => JSON.stringify(formState) !== JSON.stringify(initialFormState),
     [formState, initialFormState],
@@ -448,7 +459,6 @@ export function useBookingsManagement() {
     isSavingBooking: saveBookingMutation.isPending,
     pendingCheckoutBookingId,
     pendingCancelBookingId,
-    pendingAvailableRoomId,
     viewMonth,
     setViewMonth,
     calendarDays,
@@ -458,7 +468,6 @@ export function useBookingsManagement() {
     openEdit,
     closeForm,
     handleCheckoutBooking,
-    handleSetRoomAvailable,
     handleSaveBooking,
     handleCancelBooking,
     getMonthLabel,

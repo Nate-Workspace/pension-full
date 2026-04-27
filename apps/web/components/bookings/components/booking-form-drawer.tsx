@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { Booking, BookingStatus, Room } from "@/data";
+import type { Booking, Room } from "@/data";
 import { FormSurface, LoadingSpinner, SelectInput } from "@/components/ui";
 
 import type { BookingFormState } from "../hooks/use-bookings-management";
@@ -154,20 +154,6 @@ export function BookingFormDrawer({
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-slate-700">Status</span>
-            <SelectInput
-              value={formState.status}
-              onChange={(event) => onFormStateChange((prev) => ({ ...prev, status: event.target.value as BookingStatus }))}
-              disabled={isSaving}
-              className="h-10 w-full"
-            >
-              <option value="confirmed">Confirmed</option>
-              <option value="pending">Pending</option>
-              <option value="cancelled">Cancelled</option>
-            </SelectInput>
-          </label>
-
           <label className="space-y-1">
             <span className="text-sm font-medium text-slate-700">Paid Amount</span>
             <input

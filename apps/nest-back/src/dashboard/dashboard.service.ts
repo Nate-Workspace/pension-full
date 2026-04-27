@@ -6,15 +6,19 @@ import {
   type DashboardSummary,
   type DashboardTrends,
 } from '@repo/contracts';
+import {
+  computeBookingStatus,
+  type BookingLifecycleStatus,
+} from '../bookings/booking-status';
 
 type BookingRecord = typeof bookingsTable.$inferSelect;
 type RoomRecord = typeof roomsTable.$inferSelect;
-
-type SummaryQuery = {
-  operationDay?: string;
+type BookingLifecycleRecord = BookingRecord & {
+  isCanceled: boolean;
+  checkedOutAt?: Date | null;
 };
 
-type TrendsQuery = {
+type SummaryQuery = {
   operationDay?: string;
 };
 
@@ -69,7 +73,7 @@ export class DashboardService {
     const occupancySeries = Array.from({ length: 7 }, (_, index) => {
       const day = this.addDays(operationDay, index - 6);
       const occupiedCount = bookings.filter(
-        (booking) => booking.status === 'confirmed' && this.isDateInsideStay(day, booking.checkInDate, booking.checkOutDate),
+        (booking) => computeBookingStatus(booking as BookingLifecycleRecord, day) === 'active',
       ).length;
 
       return {
@@ -81,7 +85,7 @@ export class DashboardService {
     const revenueSeries = Array.from({ length: 7 }, (_, index) => {
       const day = this.addDays(operationDay, index - 6);
       const revenue = bookings
-        .filter((booking) => booking.status !== 'cancelled' && this.toIsoDate(booking.createdAt) === day)
+        .filter((booking) => !(booking as BookingLifecycleRecord).isCanceled && this.toIsoDate(booking.createdAt) === day)
         .reduce((sum, booking) => sum + booking.paidAmount, 0);
 
       return {
@@ -138,19 +142,19 @@ export class DashboardService {
 
   private getCollectedForDay(bookings: BookingRecord[], dayIso: string): number {
     return bookings
-      .filter((booking) => booking.status !== 'cancelled' && this.toIsoDate(booking.createdAt) === dayIso)
+      .filter((booking) => !(booking as BookingLifecycleRecord).isCanceled && this.toIsoDate(booking.createdAt) === dayIso)
       .reduce((sum, booking) => sum + booking.paidAmount, 0);
   }
 
   private getCollectedForMonth(bookings: BookingRecord[], monthPrefix: string): number {
     return bookings
-      .filter((booking) => booking.status !== 'cancelled' && this.toIsoDate(booking.createdAt).startsWith(monthPrefix))
+      .filter((booking) => !(booking as BookingLifecycleRecord).isCanceled && this.toIsoDate(booking.createdAt).startsWith(monthPrefix))
       .reduce((sum, booking) => sum + booking.paidAmount, 0);
   }
 
   private getOutstandingPayments(bookings: BookingRecord[], roomById: Map<string, RoomRecord>): number {
     return bookings
-      .filter((booking) => booking.status !== 'cancelled')
+      .filter((booking) => !(booking as BookingLifecycleRecord).isCanceled)
       .reduce((sum, booking) => {
         const room = roomById.get(booking.roomId);
 
@@ -177,19 +181,7 @@ export class DashboardService {
   }
 
   private isActiveBookingOn(operationDay: string, booking: BookingRecord): boolean {
-    return booking.status !== 'cancelled' && booking.checkInDate <= operationDay && operationDay < booking.checkOutDate;
-  }
-
-  private isDateInsideStay(day: string, checkInDate: string, checkOutDate: string): boolean {
-    return day >= checkInDate && day < checkOutDate;
-  }
-
-  private parseOperationDay(value: string): string {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      throw new BadRequestException('operationDay must be in YYYY-MM-DD format.');
-    }
-
-    return value;
+    return computeBookingStatus(booking as BookingLifecycleRecord, operationDay) === 'active';
   }
 
   private optionalIsoDate(value: unknown): string | undefined {
@@ -231,6 +223,14 @@ export class DashboardService {
     const value = this.parseIsoDate(day);
     value.setUTCDate(value.getUTCDate() + days);
     return value.toISOString().slice(0, 10);
+  }
+
+  private parseOperationDay(value: string): string {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      throw new BadRequestException('operationDay must be in YYYY-MM-DD format.');
+    }
+
+    return value;
   }
 
   private getCurrentOperationDay(): string {

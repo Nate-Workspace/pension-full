@@ -124,7 +124,7 @@ export class PaymentsService {
 
     const payments = paymentRows as PaymentRecord[];
     const bookings = (bookingRows as BookingRecord[]).filter(
-      (booking) => booking.status !== 'cancelled',
+      (booking) => !(booking as BookingRecord & { isCanceled: boolean }).isCanceled,
     );
     const roomById = new Map((roomRows as RoomRecord[]).map((room) => [room.id, room]));
 

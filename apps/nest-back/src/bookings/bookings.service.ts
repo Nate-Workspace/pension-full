@@ -16,41 +16,50 @@ import {
   type CreateBookingInput,
   type UpdateBookingInput,
 } from '@repo/contracts';
+import {
+  computeBookingStatus,
+  type BookingLifecycleStatus,
+} from './booking-status';
 
 type BookingRecord = typeof bookingsTable.$inferSelect;
 type RoomRecord = typeof roomsTable.$inferSelect;
+type BookingLifecycleRecord = {
+  checkInDate: string;
+  checkOutDate: string;
+  isCanceled: boolean;
+  checkedOutAt: Date | null;
+};
+
 type BookingListQuery = {
-  status?: 'all' | BookingRecord['status'];
+  status?: 'all' | BookingLifecycleStatus;
   search?: string;
   page?: number;
   pageSize?: number;
   sortBy?: string;
   order?: 'asc' | 'desc';
+  operationDay?: string;
 };
 
 @Injectable()
 export class BookingsService {
   async listBookings(query: unknown): Promise<BookingListResponse> {
     const parsedQuery = this.normalizeListQuery(query);
+    const operationDay = parsedQuery.operationDay ?? this.getCurrentOperationDay();
 
     const [bookingRows, roomRows] = await Promise.all([
       db.select().from(bookingsTable),
       db.select().from(roomsTable),
     ]);
 
-    const roomById = new Map(roomRows.map((room) => [room.id, room]));
+    const roomById = new Map((roomRows as RoomRecord[]).map((room) => [room.id, room]));
     const searchTerm = parsedQuery.search?.toLowerCase();
 
     const responses = (bookingRows as BookingRecord[])
       .map((booking) =>
-        this.toBookingResponse(booking, roomById.get(booking.roomId) ?? null),
+        this.toBookingResponse(booking, roomById.get(booking.roomId) ?? null, operationDay),
       )
       .filter((booking) => {
-        if (
-          parsedQuery.status &&
-          parsedQuery.status !== 'all' &&
-          booking.status !== parsedQuery.status
-        ) {
+        if (parsedQuery.status && parsedQuery.status !== 'all' && booking.status !== parsedQuery.status) {
           return false;
         }
 
@@ -70,35 +79,17 @@ export class BookingsService {
           booking.handledBy?.toLowerCase().includes(searchTerm)
         );
       })
-      .sort((left, right) =>
-        this.compareBookings(
-          left,
-          right,
-          parsedQuery.sortBy,
-          parsedQuery.order,
-          roomById,
-        ),
-      );
+      .sort((left, right) => this.compareBookings(left, right, parsedQuery.sortBy, parsedQuery.order, roomById));
 
-    const paginate =
-      parsedQuery.page !== undefined || parsedQuery.pageSize !== undefined;
-    const pageSize =
-      typeof parsedQuery.pageSize === 'number' ? parsedQuery.pageSize : 10;
+    const paginate = parsedQuery.page !== undefined || parsedQuery.pageSize !== undefined;
+    const pageSize = typeof parsedQuery.pageSize === 'number' ? parsedQuery.pageSize : 10;
     const page = typeof parsedQuery.page === 'number' ? parsedQuery.page : 1;
     const total = responses.length;
-    const totalPages = paginate
-      ? total > 0
-        ? Math.ceil(total / pageSize)
-        : 0
-      : total > 0
-        ? 1
-        : 0;
+    const totalPages = paginate ? (total > 0 ? Math.ceil(total / pageSize) : 0) : total > 0 ? 1 : 0;
     const startIndex = (page - 1) * pageSize;
 
     return {
-      data: paginate
-        ? responses.slice(startIndex, startIndex + pageSize)
-        : responses,
+      data: paginate ? responses.slice(startIndex, startIndex + pageSize) : responses,
       meta: {
         page,
         pageSize: paginate ? pageSize : total > 0 ? total : 1,
@@ -109,10 +100,7 @@ export class BookingsService {
   }
 
   async createBooking(body: unknown): Promise<BookingResponse> {
-    const input = this.parseSchema<CreateBookingInput>(
-      createBookingSchema,
-      body,
-    );
+    const input = this.parseSchema<CreateBookingInput>(createBookingSchema, body);
     this.validateStayDates(input.checkInDate, input.checkOutDate);
 
     const room = await this.findRoomById(db, input.roomId);
@@ -121,13 +109,11 @@ export class BookingsService {
       throw new NotFoundException('Room not found');
     }
 
-    if (input.status !== 'cancelled') {
-      await this.ensureNoOverlap(db, {
-        roomId: input.roomId,
-        checkInDate: input.checkInDate,
-        checkOutDate: input.checkOutDate,
-      });
-    }
+    await this.ensureNoOverlap(db, {
+      roomId: input.roomId,
+      checkInDate: input.checkInDate,
+      checkOutDate: input.checkOutDate,
+    });
 
     const nights = this.calculateNights(input.checkInDate, input.checkOutDate);
     const totalAmount = this.calculateTotalAmount(room, nights);
@@ -144,7 +130,8 @@ export class BookingsService {
         guestPhone: input.guestPhone ?? null,
         guestIdNumber: input.guestIdNumber ?? null,
         handledBy: input.handledBy ?? null,
-        status: input.status,
+        isCanceled: false,
+        checkedOutAt: null,
         checkInDate: input.checkInDate,
         checkOutDate: input.checkOutDate,
         paidAmount,
@@ -158,14 +145,11 @@ export class BookingsService {
       throw new BadRequestException('Failed to create booking.');
     }
 
-    return this.toBookingResponse(booking, room);
+    return this.toBookingResponse(booking, room, this.getCurrentOperationDay());
   }
 
   async updateBooking(id: string, body: unknown): Promise<BookingResponse> {
-    const input = this.parseSchema<UpdateBookingInput>(
-      updateBookingSchema,
-      body,
-    );
+    const input = this.parseSchema<UpdateBookingInput>(updateBookingSchema, body);
     this.validateStayDates(input.checkInDate, input.checkOutDate);
 
     const existingBooking = await this.findBookingById(db, id);
@@ -180,18 +164,17 @@ export class BookingsService {
       throw new NotFoundException('Room not found');
     }
 
-    if (input.status !== 'cancelled') {
-      await this.ensureNoOverlap(db, {
-        roomId: input.roomId,
-        checkInDate: input.checkInDate,
-        checkOutDate: input.checkOutDate,
-        ignoreBookingId: id,
-      });
-    }
+    await this.ensureNoOverlap(db, {
+      roomId: input.roomId,
+      checkInDate: input.checkInDate,
+      checkOutDate: input.checkOutDate,
+      ignoreBookingId: id,
+    });
 
     const nights = this.calculateNights(input.checkInDate, input.checkOutDate);
     const totalAmount = this.calculateTotalAmount(room, nights);
     const paidAmount = Math.min(input.paidAmount, totalAmount);
+    const lifecycle = existingBooking as BookingRecord & BookingLifecycleRecord;
 
     const updatedRows = await db
       .update(bookingsTable)
@@ -201,7 +184,8 @@ export class BookingsService {
         guestPhone: input.guestPhone ?? null,
         guestIdNumber: input.guestIdNumber ?? null,
         handledBy: input.handledBy ?? null,
-        status: input.status,
+        isCanceled: lifecycle.isCanceled,
+        checkedOutAt: lifecycle.checkedOutAt,
         checkInDate: input.checkInDate,
         checkOutDate: input.checkOutDate,
         paidAmount,
@@ -216,7 +200,7 @@ export class BookingsService {
       throw new NotFoundException('Booking not found');
     }
 
-    return this.toBookingResponse(updatedBooking, room);
+    return this.toBookingResponse(updatedBooking, room, this.getCurrentOperationDay());
   }
 
   async cancelBooking(id: string): Promise<BookingResponse> {
@@ -234,7 +218,7 @@ export class BookingsService {
 
     const updatedRows = await db
       .update(bookingsTable)
-      .set({ status: 'cancelled' })
+      .set({ isCanceled: true })
       .where(eq(bookingsTable.id, id))
       .returning();
 
@@ -244,7 +228,14 @@ export class BookingsService {
       throw new NotFoundException('Booking not found');
     }
 
-    return this.toBookingResponse(cancelledBooking, room);
+    if (room.manualStatus !== 'maintenance') {
+      await db
+        .update(roomsTable)
+        .set({ manualStatus: 'available' })
+        .where(eq(roomsTable.id, room.id));
+    }
+
+    return this.toBookingResponse(cancelledBooking, room, this.getCurrentOperationDay());
   }
 
   async checkoutBooking(id: string): Promise<BookingResponse> {
@@ -254,22 +245,10 @@ export class BookingsService {
       throw new NotFoundException('Booking not found');
     }
 
-    if (existingBooking.status === 'cancelled') {
+    const lifecycle = existingBooking as BookingRecord & BookingLifecycleRecord;
+
+    if (lifecycle.isCanceled) {
       throw new ConflictException('Cancelled bookings cannot be checked out.');
-    }
-
-    const operationDay = this.getCurrentOperationDay();
-
-    if (operationDay <= existingBooking.checkInDate) {
-      throw new BadRequestException(
-        'Check-out date must be after check-in date.',
-      );
-    }
-
-    if (operationDay > existingBooking.checkOutDate) {
-      throw new ConflictException(
-        'Booking has already ended and cannot be checked out.',
-      );
     }
 
     const room = await this.findRoomById(db, existingBooking.roomId);
@@ -278,17 +257,15 @@ export class BookingsService {
       throw new NotFoundException('Room not found');
     }
 
-    const checkoutNights = this.calculateNights(
-      existingBooking.checkInDate,
-      operationDay,
-    );
+    const operationDay = this.getCurrentOperationDay();
+    const checkoutNights = this.calculateNights(existingBooking.checkInDate, operationDay);
     const totalAmount = this.calculateTotalAmount(room, checkoutNights);
     const paidAmount = Math.min(existingBooking.paidAmount ?? 0, totalAmount);
 
     const updatedRows = await db
       .update(bookingsTable)
       .set({
-        checkOutDate: operationDay,
+        checkedOutAt: new Date(),
         paidAmount,
       })
       .where(eq(bookingsTable.id, id))
@@ -307,7 +284,7 @@ export class BookingsService {
         .where(eq(roomsTable.id, room.id));
     }
 
-    return this.toBookingResponse(updatedBooking, room);
+    return this.toBookingResponse(updatedBooking, room, this.getCurrentOperationDay());
   }
 
   private parseSchema<T>(
@@ -345,6 +322,7 @@ export class BookingsService {
       page: this.optionalPositiveInteger(record.page),
       pageSize: this.optionalPositiveInteger(record.pageSize),
       sortBy: this.optionalTrimmedString(record.sortBy),
+      operationDay: this.parseOperationDayFilter(record.operationDay),
       order:
         record.order === 'asc' || record.order === 'desc'
           ? record.order
@@ -362,13 +340,42 @@ export class BookingsService {
       return undefined;
     }
 
-    if (value === 'confirmed' || value === 'pending' || value === 'cancelled') {
+    if (
+      value === 'active' ||
+      value === 'upcoming' ||
+      value === 'checked_out' ||
+      value === 'canceled'
+    ) {
       return value;
     }
 
+    if (value === 'confirmed') {
+      return 'active';
+    }
+
+    if (value === 'pending') {
+      return 'upcoming';
+    }
+
+    if (value === 'cancelled') {
+      return 'canceled';
+    }
+
     throw new BadRequestException(
-      'status must be one of: all, confirmed, pending, cancelled.',
+      'status must be one of: all, active, upcoming, checked_out, canceled.',
     );
+  }
+
+  private parseOperationDayFilter(value: unknown): string | undefined {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    if (typeof value !== 'string') {
+      throw new BadRequestException('operationDay must be a string.');
+    }
+
+    return this.parseOperationDay(value);
   }
 
   private optionalTrimmedString(value: unknown): string | undefined {
@@ -528,8 +535,13 @@ export class BookingsService {
       .from(bookingsTable)
       .where(eq(bookingsTable.roomId, input.roomId))) as BookingRecord[];
 
+    const currentOperationDay = this.getCurrentOperationDay();
+
     const conflict = roomBookings.find((booking) => {
-      if (booking.status === 'cancelled') {
+      const lifecycle = booking as BookingRecord & BookingLifecycleRecord;
+      const bookingStatus = computeBookingStatus(lifecycle, currentOperationDay);
+
+      if (bookingStatus === 'canceled' || bookingStatus === 'checked_out') {
         return false;
       }
 
@@ -553,18 +565,19 @@ export class BookingsService {
   private toBookingResponse(
     booking: BookingRecord,
     room: RoomRecord | null,
+    operationDay: string,
   ): BookingResponse {
     if (!room) {
       throw new NotFoundException('Room not found');
     }
 
-    const nights = this.calculateNights(
-      booking.checkInDate,
-      booking.checkOutDate,
-    );
+    const lifecycle = booking as BookingRecord & BookingLifecycleRecord;
+    const nights = this.calculateNights(booking.checkInDate, booking.checkOutDate);
     const totalAmount = this.calculateTotalAmount(room, nights);
     const paidAmount = Math.min(booking.paidAmount ?? 0, totalAmount);
     const remainingAmount = Math.max(totalAmount - paidAmount, 0);
+    const checkedOutAt = lifecycle.checkedOutAt ? this.toIsoString(lifecycle.checkedOutAt) : null;
+    const status = computeBookingStatus(lifecycle, operationDay);
 
     const response = {
       id: booking.id,
@@ -576,7 +589,9 @@ export class BookingsService {
       },
       handledBy: booking.handledBy ?? undefined,
       roomId: booking.roomId,
-      status: booking.status,
+      status,
+      isCanceled: lifecycle.isCanceled,
+      checkedOutAt,
       checkIn: booking.checkInDate,
       checkOut: booking.checkOutDate,
       checkInDate: booking.checkInDate,
@@ -634,9 +649,7 @@ export class BookingsService {
   private async generateBookingCode(database: typeof db): Promise<string> {
     const bookingRows = (await database
       .select({ id: bookingsTable.id })
-      .from(bookingsTable)) as Array<{
-      id: string;
-    }>;
+      .from(bookingsTable)) as Array<{ id: string }>;
 
     let candidateIndex = bookingRows.length + 1;
 
@@ -662,6 +675,14 @@ export class BookingsService {
 
   private createBookingId(): string {
     return `book-${randomUUID().slice(0, 8)}`;
+  }
+
+  private parseOperationDay(value: string): string {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      throw new BadRequestException('operationDay must be in YYYY-MM-DD format.');
+    }
+
+    return value;
   }
 
   private parseIsoDate(value: string): Date {

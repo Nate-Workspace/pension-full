@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { paginationMetaSchema, paginationQuerySchema } from "./pagination";
 
-export const bookingStatusSchema = z.enum(["confirmed", "pending", "cancelled"]);
+export const bookingStatusSchema = z.enum(["active", "upcoming", "checked_out", "canceled"]);
 
 export const bookingSourceSchema = z.enum(["walk-in", "phone", "website", "agent"]);
 
@@ -28,7 +28,6 @@ export const createBookingSchema = z.object({
 	guestIdNumber: bookingOptionalTextSchema,
 	handledBy: bookingOptionalTextSchema,
 	roomId: bookingTextSchema,
-	status: bookingStatusSchema,
 	checkInDate: bookingDateSchema,
 	checkOutDate: bookingDateSchema,
 	paidAmount: bookingAmountSchema,
@@ -40,6 +39,7 @@ export const updateBookingSchema = createBookingSchema;
 export const listBookingsQuerySchema = paginationQuerySchema.extend({
 	status: z.union([z.literal("all"), bookingStatusSchema]).optional(),
 	search: z.string().trim().min(1).optional(),
+	operationDay: bookingDateSchema.optional(),
 });
 
 export const bookingResponseSchema = z.object({
@@ -49,6 +49,8 @@ export const bookingResponseSchema = z.object({
 	handledBy: z.string().optional(),
 	roomId: z.string(),
 	status: bookingStatusSchema,
+	isCanceled: z.boolean(),
+	checkedOutAt: bookingDateSchema.nullable(),
 	checkIn: bookingDateSchema,
 	checkOut: bookingDateSchema,
 	checkInDate: bookingDateSchema,

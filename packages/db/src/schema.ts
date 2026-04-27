@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   integer,
   pgTable,
   text,
@@ -12,7 +13,7 @@ export const roomTypeEnum = ["single", "double", "vip"] as const;
 export const roomManualStatusEnum = ["available", "cleaning", "maintenance"] as const;
 export const roomStatusEnum = ["available", "occupied", "cleaning", "maintenance"] as const;
 export const bookingSourceEnum = ["walk-in", "phone", "website", "agent"] as const;
-export const bookingStatusEnum = ["confirmed", "pending", "cancelled"] as const;
+export const bookingStatusEnum = ["active", "upcoming", "checked_out", "canceled"] as const;
 export const paymentMethodEnum = ["cash", "mobile_money"] as const;
 export const paymentStatusEnum = ["paid", "partial", "unpaid"] as const;
 
@@ -59,9 +60,10 @@ export const bookings = pgTable(
     guestPhone: text("guestPhone"),
     guestIdNumber: text("guestIdNumber"),
     handledBy: text("handledBy"),
-    status: text("status", { enum: bookingStatusEnum }).notNull(),
+    isCanceled: boolean("isCanceled").notNull().default(false),
     checkInDate: text("checkInDate").notNull(),
     checkOutDate: text("checkOutDate").notNull(),
+    checkedOutAt: timestamp("checkedOutAt", { mode: "date", withTimezone: true }),
     paidAmount: integer("paidAmount").notNull().default(0),
     source: text("source", { enum: bookingSourceEnum }).notNull().default("walk-in"),
     createdAt: timestamp("createdAt", { mode: "date", withTimezone: true })

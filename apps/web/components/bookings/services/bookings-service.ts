@@ -181,7 +181,6 @@ export async function saveBooking(input: {
   guestIdNumber?: string;
   handledBy?: string;
   roomId: string;
-  status: BookingStatus;
   checkInDate: string;
   checkOutDate: string;
   paidAmount: number;
@@ -202,7 +201,6 @@ export async function saveBooking(input: {
       guestIdNumber: input.guestIdNumber,
       handledBy: input.handledBy,
       roomId: input.roomId,
-      status: input.status,
       checkInDate: input.checkInDate,
       checkOutDate: input.checkOutDate,
       paidAmount: input.paidAmount,
@@ -238,20 +236,5 @@ export async function cancelBooking(bookingId: string): Promise<void> {
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, `Failed to cancel booking (${response.status}).`));
-  }
-}
-
-export async function setRoomAvailable(roomId: string): Promise<void> {
-  const response = await apiFetch(`/rooms/${roomId}/status`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ status: "available" }),
-  });
-
-  if (!response.ok) {
-    throw new Error(await getErrorMessage(response, `Failed to set room available (${response.status}).`));
   }
 }

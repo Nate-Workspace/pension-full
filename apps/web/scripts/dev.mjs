@@ -16,7 +16,8 @@ function isPortFree(port) {
       server.close(() => resolve(true));
     });
 
-    server.listen(port, "0.0.0.0");
+    // Let Node bind with default host to catch both IPv4/IPv6 port conflicts.
+    server.listen(port);
   });
 }
 

@@ -34,28 +34,36 @@ export function generateCalendarDays(viewMonth: Date): CalendarDay[] {
   });
 }
 
-export function bookingStatusStyle(status: BookingStatus): string {
-  if (status === "confirmed") {
+export function bookingStatusStyle(status: string): string {
+  if (status === "active") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
 
-  if (status === "pending") {
+  if (status === "upcoming") {
     return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  if (status === "checked_out") {
+    return "border-slate-200 bg-slate-100 text-slate-600";
   }
 
   return "border-rose-200 bg-rose-50 text-rose-700";
 }
 
-export function bookingStatusLabel(status: BookingStatus): string {
-  if (status === "confirmed") {
-    return "Confirmed";
+export function bookingStatusLabel(status: string): string {
+  if (status === "active") {
+    return "Active";
   }
 
-  if (status === "pending") {
-    return "Pending";
+  if (status === "upcoming") {
+    return "Upcoming";
   }
 
-  return "Cancelled";
+  if (status === "checked_out") {
+    return "Checked Out";
+  }
+
+  return status === "canceled" ? "Canceled" : status === "cancelled" ? "Cancelled" : "Unknown";
 }
 
 export function paymentStatusStyle(status: Booking["paymentStatus"]): string {
@@ -111,7 +119,7 @@ export function formatMoney(value: number): string {
 }
 
 export function occursOnDay(booking: Booking, dayIso: string): boolean {
-  return booking.status !== "cancelled" && dayIso >= booking.checkInDate && dayIso < booking.checkOutDate;
+  return booking.status !== "canceled" && booking.status !== "cancelled" && dayIso >= booking.checkInDate && dayIso < booking.checkOutDate;
 }
 
 export function daysDiff(startIso: string, endIso: string): number {
@@ -122,7 +130,7 @@ export function daysDiff(startIso: string, endIso: string): number {
 }
 
 export function computeOccupancyRate(roomBookings: Booking[]): number {
-  const activeBookings = roomBookings.filter((booking) => booking.status !== "cancelled");
+  const activeBookings = roomBookings.filter((booking) => booking.status !== "canceled" && booking.status !== "cancelled");
 
   if (activeBookings.length === 0) {
     return 0;

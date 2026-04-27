@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import type { Booking } from "@/data";
-import { toIsoDate } from "@/lib/operations";
 import type { RoomAnalytics, RoomBookingRow } from "../types";
 import { computeOccupancyRate } from "../utils";
 
@@ -24,12 +23,11 @@ export function useRoomDerivedData(roomBookings: Booking[]) {
   }, [roomBookings]);
 
   const activeBooking = useMemo(() => {
-    const today = toIsoDate(new Date());
-    return roomBookings.find((booking) => booking.status !== "cancelled" && booking.checkInDate <= today && today < booking.checkOutDate) ?? null;
+    return roomBookings.find((booking) => booking.status === "active") ?? null;
   }, [roomBookings]);
 
   const analytics = useMemo<RoomAnalytics>(() => {
-    const nonCancelled = roomBookings.filter((booking) => booking.status !== "cancelled");
+    const nonCancelled = roomBookings.filter((booking) => booking.status !== "canceled" && booking.status !== "cancelled");
 
     return {
       bookingCount: roomBookings.length,

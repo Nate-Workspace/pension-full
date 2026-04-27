@@ -18,7 +18,7 @@ export function useBookings() {
   const { operationDay } = useOperationsData();
 
   const search = searchParams.get("search")?.trim() ?? "";
-  const statusFilter = (searchParams.get("status") as BookingFilter | null) ?? "all";
+  const statusFilter = (searchParams.get("status") as BookingFilter | null) ?? "active";
   const page = parsePositiveInteger(searchParams.get("page"), 1);
   const pageSize = parsePositiveInteger(searchParams.get("pageSize"), 10);
 
@@ -38,13 +38,14 @@ export function useBookings() {
   });
 
   useEffect(() => {
-    if (searchParams.get("page") && searchParams.get("pageSize")) {
+    if (searchParams.get("page") && searchParams.get("pageSize") && searchParams.get("status")) {
       return;
     }
 
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", searchParams.get("page") ?? "1");
     params.set("pageSize", searchParams.get("pageSize") ?? "10");
+    params.set("status", searchParams.get("status") ?? "active");
 
     const nextQuery = params.toString();
     router.replace(nextQuery.length > 0 ? `${pathname}?${nextQuery}` : pathname, { scroll: false });

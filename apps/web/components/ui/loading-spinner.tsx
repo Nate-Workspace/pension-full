@@ -1,4 +1,4 @@
-type LoadingSpinnerProps = {
+export type LoadingSpinnerProps = {
   className?: string;
 };
 

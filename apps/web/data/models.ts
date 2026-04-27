@@ -22,7 +22,14 @@ export type BookingGuestInfo = {
 
 export type BookingPaymentStatus = "paid" | "partial" | "unpaid";
 
-export type BookingStatus = "confirmed" | "pending" | "cancelled";
+export type BookingStatus =
+  | "active"
+  | "upcoming"
+  | "checked_out"
+  | "canceled"
+  | "confirmed"
+  | "pending"
+  | "cancelled";
 
 export type Booking = {
   id: string;

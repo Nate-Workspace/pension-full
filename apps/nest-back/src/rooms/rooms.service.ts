@@ -12,8 +12,16 @@ import {
   type ListRoomsQueryInput,
   type RoomListResponse,
 } from '@repo/contracts';
+import {
+  computeBookingStatus,
+  type BookingLifecycleStatus,
+} from '../bookings/booking-status';
 
 type RoomRecord = typeof roomsTable.$inferSelect;
+type BookingLifecycleRecord = BookingRecord & {
+  isCanceled: boolean;
+  checkedOutAt?: Date | null;
+};
 type BookingRecord = typeof bookingsTable.$inferSelect;
 type RoomType = 'single' | 'double' | 'vip';
 type RoomStatus = 'available' | 'occupied' | 'cleaning' | 'maintenance';
@@ -368,7 +376,7 @@ export class RoomsService {
     const activeBookingByRoomId = new Map<string, BookingRecord>();
 
     for (const booking of bookings) {
-      if (!this.isActiveBookingOn(operationDay, booking)) {
+      if (!this.isActiveBookingOn(operationDay, booking as BookingLifecycleRecord)) {
         continue;
       }
 
@@ -388,21 +396,15 @@ export class RoomsService {
       .where(eq(bookingsTable.roomId, roomId))) as BookingRecord[];
 
     return (
-      roomBookings.find((booking) =>
-        this.isActiveBookingOn(operationDay, booking),
-      ) ?? null
+      roomBookings.find((booking) => this.isActiveBookingOn(operationDay, booking as BookingLifecycleRecord)) ?? null
     );
   }
 
   private isActiveBookingOn(
     operationDay: string,
-    booking: BookingRecord,
+    booking: BookingLifecycleRecord,
   ): boolean {
-    return (
-      booking.status !== 'cancelled' &&
-      booking.checkInDate <= operationDay &&
-      operationDay < booking.checkOutDate
-    );
+    return computeBookingStatus(booking, operationDay) === 'active';
   }
 
   private resolveEffectiveStatus(
