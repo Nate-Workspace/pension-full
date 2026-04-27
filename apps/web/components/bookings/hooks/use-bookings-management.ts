@@ -35,6 +35,8 @@ export type CalendarReservation = {
   guestName: string;
   roomNumber: string;
   status: BookingStatus;
+  checkInDate: string;
+  checkOutDate: string;
 };
 
 export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -372,10 +374,6 @@ export function useBookingsManagement() {
     const map = new Map<string, CalendarReservation[]>();
 
     bookings.forEach((booking) => {
-      if (booking.status === "canceled" || booking.status === "cancelled") {
-        return;
-      }
-
       calendarDays.forEach((day) => {
         if (!occursOnDay(booking, day.iso)) {
           return;
@@ -387,7 +385,9 @@ export function useBookingsManagement() {
           id: booking.id,
           guestName: booking.guest.name,
           roomNumber: room?.number ?? "N/A",
-          status: booking.status,
+          status: booking.status === "cancelled" ? "canceled" : booking.status,
+          checkInDate: booking.checkInDate,
+          checkOutDate: booking.checkOutDate,
         };
 
         const current = map.get(day.iso) ?? [];
