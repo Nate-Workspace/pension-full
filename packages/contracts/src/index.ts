@@ -30,6 +30,8 @@ export {
 } from "./payments";
 export {
 	createRoomSchema,
+	availableRoomsQuerySchema,
+	availableRoomsResponseSchema,
 	roomListResponseSchema,
 	listRoomsQuerySchema,
 	roomCurrentGuestSchema,
@@ -68,6 +70,8 @@ export type {
 
 export type {
 	CreateRoomInput,
+	AvailableRoomsQueryInput,
+	AvailableRoomsResponse,
 	RoomListResponse,
 	ListRoomsQueryInput,
 	RoomCurrentGuest,

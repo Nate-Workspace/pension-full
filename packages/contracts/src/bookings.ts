@@ -31,7 +31,7 @@ export const createBookingSchema = z.object({
 	checkInDate: bookingDateSchema,
 	checkOutDate: bookingDateSchema,
 	paidAmount: bookingAmountSchema,
-	source: bookingSourceSchema,
+	source: bookingSourceSchema.optional(),
 });
 
 export const updateBookingSchema = createBookingSchema;

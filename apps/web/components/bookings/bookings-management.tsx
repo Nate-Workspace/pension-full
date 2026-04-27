@@ -13,7 +13,7 @@ export function BookingsManagement() {
     statusFilter,
     page,
     pageSize,
-    rooms,
+    availableRooms,
     pageBookings,
     roomById,
     pageMeta,
@@ -26,6 +26,10 @@ export function BookingsManagement() {
     formError,
     isFormDirty,
     isSavingBooking,
+    isLoadingAvailableRooms,
+    hasValidDateRange,
+    computedNights,
+    computedTotalAmount,
     pendingCheckoutBookingId,
     pendingCancelBookingId,
     viewMonth,
@@ -104,11 +108,15 @@ export function BookingsManagement() {
 
       <BookingFormDrawer
         isOpen={isFormOpen}
-        rooms={rooms}
+        rooms={availableRooms}
         formState={formState}
         formError={formError}
         isDirty={isFormDirty}
         isSaving={isSavingBooking}
+        isLoadingRooms={isLoadingAvailableRooms}
+        hasValidDateRange={hasValidDateRange}
+        nights={computedNights}
+        totalAmount={computedTotalAmount}
         onClose={closeForm}
         onSave={handleSaveBooking}
         onFormStateChange={setFormState}

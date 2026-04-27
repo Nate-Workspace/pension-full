@@ -19,6 +19,23 @@ import { RoomsService } from './rooms.service';
 export class RoomsController {
   constructor(private readonly roomsService: RoomsService) {}
 
+  @Get('available')
+  listAvailableRooms(
+    @Query('checkIn') checkIn?: string,
+    @Query('checkOut') checkOut?: string,
+    @Query('excludeBookingId') excludeBookingId?: string,
+  ): Promise<unknown> {
+    const roomsService = this.roomsService as {
+      listAvailableRooms: (query: unknown) => Promise<unknown>;
+    };
+
+    return roomsService.listAvailableRooms({
+      checkIn,
+      checkOut,
+      excludeBookingId,
+    });
+  }
+
   @Get(':id')
   getRoomById(
     @Param('id') id: string,

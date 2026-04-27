@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { Booking, Room } from "@/data";
+import type { Room } from "@/data";
 import { FormSurface, LoadingSpinner, SelectInput } from "@/components/ui";
 
 import type { BookingFormState } from "../hooks/use-bookings-management";
@@ -11,10 +11,23 @@ type Props = {
   formError: string | null;
   isDirty: boolean;
   isSaving: boolean;
+  isLoadingRooms: boolean;
+  hasValidDateRange: boolean;
+  nights: number;
+  totalAmount: number;
   onClose: () => void;
   onSave: () => void;
   onFormStateChange: Dispatch<SetStateAction<BookingFormState>>;
 };
+
+function RequiredLabel({ children }: { children: string }) {
+  return (
+    <span className="text-sm font-medium text-slate-700">
+      {children}
+      <span className="ml-1 text-rose-600">*</span>
+    </span>
+  );
+}
 
 export function BookingFormDrawer({
   isOpen,
@@ -23,6 +36,10 @@ export function BookingFormDrawer({
   formError,
   isDirty,
   isSaving,
+  isLoadingRooms,
+  hasValidDateRange,
+  nights,
+  totalAmount,
   onClose,
   onSave,
   onFormStateChange,
@@ -34,7 +51,7 @@ export function BookingFormDrawer({
       mode="drawer"
       isDirty={isDirty}
       title={formState.id ? "Edit Booking" : "Create Booking"}
-      description="Update reservation details and status."
+      description="Update reservation details and guest information."
       footer={({ requestClose }) => (
         <div className="flex items-center justify-end gap-2">
           <button
@@ -65,9 +82,9 @@ export function BookingFormDrawer({
         </div>
       )}
     >
-      <div className="space-y-4">
-        <label className="space-y-1">
-          <span className="text-sm font-medium text-slate-700">Guest Name</span>
+      <div className="space-y-5">
+        <label className="space-y-1.5">
+          <RequiredLabel>Guest Name</RequiredLabel>
           <input
             type="text"
             value={formState.guestName}
@@ -77,7 +94,7 @@ export function BookingFormDrawer({
           />
         </label>
 
-        <label className="space-y-1">
+        <label className="space-y-1.5">
           <span className="text-sm font-medium text-slate-700">Handled by (optional)</span>
           <input
             type="text"
@@ -89,8 +106,8 @@ export function BookingFormDrawer({
           />
         </label>
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="space-y-1">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="space-y-1.5">
             <span className="text-sm font-medium text-slate-700">Guest Phone</span>
             <input
               type="text"
@@ -101,7 +118,7 @@ export function BookingFormDrawer({
             />
           </label>
 
-          <label className="space-y-1">
+          <label className="space-y-1.5">
             <span className="text-sm font-medium text-slate-700">ID Number</span>
             <input
               type="text"
@@ -113,25 +130,32 @@ export function BookingFormDrawer({
           </label>
         </div>
 
-        <label className="space-y-1">
-          <span className="text-sm font-medium text-slate-700">Room</span>
+        <label className="space-y-1.5">
+          <RequiredLabel>Room</RequiredLabel>
           <SelectInput
             value={formState.roomId}
             onChange={(event) => onFormStateChange((prev) => ({ ...prev, roomId: event.target.value }))}
-            disabled={isSaving}
+            disabled={isSaving || !hasValidDateRange || isLoadingRooms || rooms.length === 0}
             className="h-10 w-full"
           >
+            {!hasValidDateRange ? (
+              <option value="">Select valid check-in and check-out first</option>
+            ) : null}
+            {hasValidDateRange && isLoadingRooms ? <option value="">Loading available rooms...</option> : null}
+            {hasValidDateRange && !isLoadingRooms && rooms.length === 0 ? (
+              <option value="">No rooms available for selected dates</option>
+            ) : null}
             {rooms.map((room) => (
               <option key={room.id} value={room.id}>
-                Room {room.number} ({room.type})
+                Room {room.number} ({room.type}) - {room.pricePerNight.toLocaleString("en-US")} Birr/night
               </option>
             ))}
           </SelectInput>
         </label>
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-slate-700">Check-in Date</span>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="space-y-1.5">
+            <RequiredLabel>Check-in Date</RequiredLabel>
             <input
               type="date"
               value={formState.checkInDate}
@@ -141,8 +165,8 @@ export function BookingFormDrawer({
             />
           </label>
 
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-slate-700">Check-out Date</span>
+          <label className="space-y-1.5">
+            <RequiredLabel>Check-out Date</RequiredLabel>
             <input
               type="date"
               value={formState.checkOutDate}
@@ -153,9 +177,9 @@ export function BookingFormDrawer({
           </label>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-slate-700">Paid Amount</span>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="space-y-1.5">
+            <RequiredLabel>Paid Amount</RequiredLabel>
             <input
               type="number"
               min={0}
@@ -166,20 +190,11 @@ export function BookingFormDrawer({
             />
           </label>
 
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-slate-700">Source</span>
-            <SelectInput
-              value={formState.source}
-              onChange={(event) => onFormStateChange((prev) => ({ ...prev, source: event.target.value as Booking["source"] }))}
-              disabled={isSaving}
-              className="h-10 w-full"
-            >
-              <option value="walk-in">Walk-in</option>
-              <option value="phone">Phone</option>
-              <option value="website">Website</option>
-              <option value="agent">Agent</option>
-            </SelectInput>
-          </label>
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Booking Amount</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{totalAmount.toLocaleString("en-US")} Birr</p>
+            <p className="text-xs text-slate-600">{nights > 0 ? `${nights} night${nights > 1 ? "s" : ""}` : "0 nights"}</p>
+          </div>
         </div>
 
         {formError ? (

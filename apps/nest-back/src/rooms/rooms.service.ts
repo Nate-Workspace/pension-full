@@ -8,7 +8,9 @@ import { eq, ilike } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { db, bookings as bookingsTable, rooms as roomsTable } from '@repo/db';
 import {
+  availableRoomsQuerySchema,
   listRoomsQuerySchema,
+  type AvailableRoomsQueryInput,
   type ListRoomsQueryInput,
   type RoomListResponse,
 } from '@repo/contracts';
@@ -73,6 +75,52 @@ type RoomListQuery = ListRoomsQueryInput;
 
 @Injectable()
 export class RoomsService {
+  async listAvailableRooms(query: unknown): Promise<RoomResponseRow[]> {
+    const parsedQuery = this.parseSchema<AvailableRoomsQueryInput>(availableRoomsQuerySchema, query);
+    const checkIn = parsedQuery.checkIn;
+    const checkOut = parsedQuery.checkOut;
+
+    if (checkOut <= checkIn) {
+      throw new BadRequestException('checkOut must be after checkIn.');
+    }
+
+    const roomRows = (await db.select().from(roomsTable)) as RoomRecord[];
+    const bookingRows = (await db.select().from(bookingsTable)) as BookingRecord[];
+
+    const overlappingRoomIds = new Set(
+      bookingRows
+        .filter((booking) => {
+          if (parsedQuery.excludeBookingId && booking.id === parsedQuery.excludeBookingId) {
+            return false;
+          }
+
+          const lifecycle = booking as BookingLifecycleRecord;
+          if (lifecycle.isCanceled || lifecycle.checkedOutAt) {
+            return false;
+          }
+
+          return booking.checkInDate < checkOut && booking.checkOutDate > checkIn;
+        })
+        .map((booking) => booking.roomId),
+    );
+
+    return roomRows
+      .filter((room) => room.manualStatus === 'available')
+      .filter((room) => !overlappingRoomIds.has(room.id))
+      .sort((left, right) => {
+        const floorDiff = left.floor - right.floor;
+        if (floorDiff !== 0) {
+          return floorDiff;
+        }
+
+        return left.number.localeCompare(right.number, undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        });
+      })
+      .map((room) => this.toRoomResponse(room, null));
+  }
+
   async getRoomById(id: string, operationDay?: string): Promise<RoomResponseRow> {
     const room = await this.findRoomById(id);
 

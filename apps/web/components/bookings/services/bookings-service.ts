@@ -89,6 +89,33 @@ export async function fetchRooms(operationDay?: string): Promise<Room[]> {
   return rows.map(mapApiRoomToUiRoom);
 }
 
+export async function fetchAvailableRooms(params: {
+  checkInDate: string;
+  checkOutDate: string;
+  excludeBookingId?: string;
+}): Promise<Room[]> {
+  const query = buildQueryString({
+    checkIn: params.checkInDate,
+    checkOut: params.checkOutDate,
+    excludeBookingId: params.excludeBookingId,
+  });
+
+  const response = await apiFetch(`/rooms/available?${query}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, `Failed to load available rooms (${response.status}).`));
+  }
+
+  const payload = (await response.json()) as Room[];
+  return payload.map(mapApiRoomToUiRoom);
+}
+
 export async function fetchAllBookings(params: {
   operationDay: string;
   search: string;
@@ -184,7 +211,6 @@ export async function saveBooking(input: {
   checkInDate: string;
   checkOutDate: string;
   paidAmount: number;
-  source: Booking["source"];
 }): Promise<void> {
   const endpoint = input.id ? `/bookings/${input.id}` : "/bookings";
   const method = input.id ? "PATCH" : "POST";
@@ -204,7 +230,7 @@ export async function saveBooking(input: {
       checkInDate: input.checkInDate,
       checkOutDate: input.checkOutDate,
       paidAmount: input.paidAmount,
-      source: input.source,
+      source: "walk-in",
     }),
   });
 

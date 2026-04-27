@@ -47,6 +47,12 @@ export const listRoomsQuerySchema = paginationQuerySchema.extend({
   type: roomTypeSchema.optional(),
 });
 
+export const availableRoomsQuerySchema = z.object({
+  checkIn: z.iso.date(),
+  checkOut: z.iso.date(),
+  excludeBookingId: z.string().trim().min(1).optional(),
+});
+
 export const roomResponseSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -66,6 +72,8 @@ export const roomListResponseSchema = z.object({
   meta: paginationMetaSchema,
 });
 
+export const availableRoomsResponseSchema = z.array(roomResponseSchema);
+
 export type RoomTypeValue = z.infer<typeof roomTypeSchema>;
 export type RoomManualStatus = z.infer<typeof roomManualStatusSchema>;
 export type RoomStatusValue = z.infer<typeof roomStatusSchema>;
@@ -76,5 +84,7 @@ export type CreateRoomInput = z.infer<typeof createRoomSchema>;
 export type UpdateRoomInput = z.infer<typeof updateRoomSchema>;
 export type RoomStatusUpdateInput = z.infer<typeof roomStatusUpdateSchema>;
 export type ListRoomsQueryInput = z.infer<typeof listRoomsQuerySchema>;
+export type AvailableRoomsQueryInput = z.infer<typeof availableRoomsQuerySchema>;
 export type RoomResponse = z.infer<typeof roomResponseSchema>;
 export type RoomListResponse = z.infer<typeof roomListResponseSchema>;
+export type AvailableRoomsResponse = z.infer<typeof availableRoomsResponseSchema>;

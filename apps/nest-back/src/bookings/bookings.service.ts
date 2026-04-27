@@ -135,7 +135,7 @@ export class BookingsService {
         checkInDate: input.checkInDate,
         checkOutDate: input.checkOutDate,
         paidAmount,
-        source: input.source,
+        source: input.source ?? 'walk-in',
       })
       .returning();
 
@@ -189,7 +189,7 @@ export class BookingsService {
         checkInDate: input.checkInDate,
         checkOutDate: input.checkOutDate,
         paidAmount,
-        source: input.source,
+        source: input.source ?? existingBooking.source,
       })
       .where(eq(bookingsTable.id, id))
       .returning();

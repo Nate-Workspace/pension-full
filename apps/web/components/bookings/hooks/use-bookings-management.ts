@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { Booking, BookingStatus, Room } from "@/data";
 import { diffNights, parseIsoDate, toIsoDate } from "@/lib/operations";
 import {
   cancelBooking,
   checkoutBooking,
+  fetchAvailableRooms,
   saveBooking,
 } from "../services/bookings-service";
 import { useBookings } from "./use-bookings";
@@ -20,7 +21,6 @@ export type BookingFormState = {
   checkInDate: string;
   checkOutDate: string;
   paidAmount: string;
-  source: Booking["source"];
 };
 
 export type CalendarDay = {
@@ -125,7 +125,6 @@ function createFormDefaults(roomList: Room[], operationDay?: string): BookingFor
     checkInDate,
     checkOutDate: addIsoDays(checkInDate, 2),
     paidAmount: "0",
-    source: "walk-in",
   };
 }
 
@@ -140,7 +139,6 @@ function createFormFromBooking(booking: Booking): BookingFormState {
     checkInDate: booking.checkInDate,
     checkOutDate: booking.checkOutDate,
     paidAmount: String(booking.paidAmount),
-    source: booking.source,
   };
 }
 
@@ -280,6 +278,69 @@ export function useBookingsManagement() {
 
   const roomById = useMemo(() => byId<Room>(rooms), [rooms]);
 
+  const hasValidDateRange =
+    formState.checkInDate.length === 10 &&
+    formState.checkOutDate.length === 10 &&
+    diffNights(formState.checkInDate, formState.checkOutDate) > 0;
+
+  const availableRoomsQuery = useQuery({
+    queryKey: ["available-rooms", formState.checkInDate, formState.checkOutDate, formState.id ?? "new"],
+    queryFn: () =>
+      fetchAvailableRooms({
+        checkInDate: formState.checkInDate,
+        checkOutDate: formState.checkOutDate,
+        excludeBookingId: formState.id,
+      }),
+    enabled: isFormOpen && hasValidDateRange,
+    staleTime: 30_000,
+  });
+
+  const availableRooms = useMemo(() => availableRoomsQuery.data ?? [], [availableRoomsQuery.data]);
+
+  useEffect(() => {
+    if (!isFormOpen) {
+      return;
+    }
+
+    if (!hasValidDateRange) {
+      if (formState.roomId.length === 0) {
+        return;
+      }
+
+      setFormState((prev) => ({ ...prev, roomId: "" }));
+      return;
+    }
+
+    if (availableRooms.length === 0) {
+      if (formState.roomId.length === 0) {
+        return;
+      }
+
+      setFormState((prev) => ({ ...prev, roomId: "" }));
+      return;
+    }
+
+    if (availableRooms.some((room) => room.id === formState.roomId)) {
+      return;
+    }
+
+    setFormState((prev) => ({
+      ...prev,
+      roomId: availableRooms[0]?.id ?? "",
+    }));
+  }, [availableRooms, formState.roomId, hasValidDateRange, isFormOpen, setFormState]);
+
+  const selectedRoom = useMemo(() => {
+    if (!formState.roomId) {
+      return null;
+    }
+
+    return availableRooms.find((room) => room.id === formState.roomId) ?? roomById.get(formState.roomId) ?? null;
+  }, [availableRooms, formState.roomId, roomById]);
+
+  const computedNights = hasValidDateRange ? diffNights(formState.checkInDate, formState.checkOutDate) : 0;
+  const computedTotalAmount = selectedRoom && computedNights > 0 ? selectedRoom.pricePerNight * computedNights : 0;
+
   const metrics = useMemo(() => {
     const active = bookings.filter((booking) => booking.status === "active").length;
     const upcoming = bookings.filter((booking) => booking.status === "upcoming").length;
@@ -394,10 +455,10 @@ export function useBookingsManagement() {
       return;
     }
 
-    const room = roomById.get(formState.roomId);
+    const room = availableRooms.find((item) => item.id === formState.roomId);
 
     if (!room) {
-      setFormError("Selected room is invalid.");
+      setFormError("Please select an available room for the selected dates.");
       return;
     }
 
@@ -423,7 +484,6 @@ export function useBookingsManagement() {
       checkInDate: formState.checkInDate,
       checkOutDate: formState.checkOutDate,
       paidAmount: parsedPaidAmount,
-      source: formState.source,
     });
   };
 
@@ -444,6 +504,11 @@ export function useBookingsManagement() {
     page,
     pageSize,
     rooms,
+    availableRooms,
+    hasValidDateRange,
+    isLoadingAvailableRooms: availableRoomsQuery.isFetching,
+    computedNights,
+    computedTotalAmount,
     bookings,
     pageBookings,
     roomById,
