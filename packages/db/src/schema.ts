@@ -70,9 +70,6 @@ export const bookings = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => ({
-    codeUnique: uniqueIndex("bookings_code_unique").on(table.code),
-  }),
 );
 
 export const payments = pgTable(
