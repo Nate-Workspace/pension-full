@@ -75,12 +75,12 @@ export function BookingsManagement() {
         <MetricCard title="Active" value={String(metrics.active)} />
         <MetricCard title="Upcoming" value={String(metrics.upcoming)} />
         <MetricCard title="Checked Out" value={String(metrics.checkedOut)} />
-        <MetricCard title="Canceled" value={String(metrics.canceled)} />
+        {/* <MetricCard title="Canceled" value={String(metrics.canceled)} /> */}
         <MetricCard title="Booked Revenue" value={formatMoney(metrics.monthRevenue)} />
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-        <div className="inline-flex rounded-lg bg-slate-100 p-1">
+        <div className="inline-flex rounded-lg bg-slate-100 p-1 mb-4 mt-2">
           <button
             type="button"
             onClick={() => setActiveView("table")}
@@ -93,7 +93,10 @@ export function BookingsManagement() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveView("calendar")}
+            onClick={() => {
+              updateUrlState({ status: "all" });
+              return setActiveView("calendar")}
+            }
             className={`h-9 rounded-md px-4 text-sm font-medium transition-colors ${
               activeView === "calendar" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-800"
             }`}
@@ -102,7 +105,7 @@ export function BookingsManagement() {
             Calendar
           </button>
         </div>
-      </section>
+      
 
       {activeView === "table" ? (
         <BookingsTableSection
@@ -152,6 +155,7 @@ export function BookingsManagement() {
         onSave={handleSaveBooking}
         onFormStateChange={setFormState}
       />
+      </section>
     </div>
   );
 }

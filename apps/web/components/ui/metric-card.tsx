@@ -49,7 +49,7 @@ export function MetricCard({
 }: MetricCardProps) {
   return (
     <section
-      className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className ?? ""}`}
+      className={`rounded-xl border border-slate-200 bg-white p-5 ${className ?? ""}`}
       aria-label={title}
     >
       <div className="flex items-start justify-between gap-4">

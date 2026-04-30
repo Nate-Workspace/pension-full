@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/components/providers/auth-provider";
 import { buildDashboardNotifications } from "@/lib/notifications";
+import Link from "next/link";
 
 type HeaderProps = {
   onOpenSidebar: () => void;
@@ -40,7 +42,9 @@ function BellIcon() {
   );
 }
 
-function notificationStyle(category: "cleaning" | "checkout" | "payment"): string {
+function notificationStyle(
+  category: "cleaning" | "checkout" | "payment",
+): string {
   if (category === "payment") {
     return "border-rose-200 bg-rose-50 text-rose-700";
   }
@@ -52,7 +56,9 @@ function notificationStyle(category: "cleaning" | "checkout" | "payment"): strin
   return "border-cyan-200 bg-cyan-50 text-cyan-700";
 }
 
-function notificationLabel(category: "cleaning" | "checkout" | "payment"): string {
+function notificationLabel(
+  category: "cleaning" | "checkout" | "payment",
+): string {
   if (category === "payment") {
     return "Payment";
   }
@@ -68,9 +74,30 @@ export function Header({ onOpenSidebar, onLogout, isLoggingOut }: HeaderProps) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const notifications = useMemo(() => buildDashboardNotifications(), []);
   const { user } = useAuth();
+  const pathname = usePathname();
 
-  const roleLabel = user?.role === "admin" ? "Owner" : user?.role === "staff" ? "Staff" : "Account";
+  const roleLabel =
+    user?.role === "admin"
+      ? "Owner"
+      : user?.role === "staff"
+        ? "Staff"
+        : "Account";
   const avatarLabel = roleLabel.slice(0, 1).toUpperCase();
+
+  const breadcrumbs = useMemo(() => {
+    const segments = pathname.split("/").filter(Boolean);
+
+    return segments.map((segment, index) => {
+      const href = "/" + segments.slice(0, index + 1).join("/");
+
+      return {
+        label: segment
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase()),
+        href,
+      };
+    });
+  }, [pathname]);
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-slate-50/90 backdrop-blur">
@@ -83,6 +110,26 @@ export function Header({ onOpenSidebar, onLogout, isLoggingOut }: HeaderProps) {
         >
           <MenuIcon />
         </button>
+
+        <div className="flex items-end gap-4">
+          <nav className="hidden sm:flex items-center text-sm text-slate-500">
+
+            {breadcrumbs.map((crumb, index) => (
+              <link key={crumb.href} className="flex items-end">
+                <span className="mx-2 text-slate-400">/</span>
+                <span
+                  className={`${
+                    index === breadcrumbs.length - 1
+                      ? "text-slate-900 font-medium"
+                      : "hover:text-slate-700"
+                  }`}
+                >
+                  {crumb.label}
+                </span>
+              </link>
+            ))}
+          </nav>
+        </div>
 
         <div className="ml-auto flex items-center gap-3">
           <div className="relative">
@@ -104,7 +151,9 @@ export function Header({ onOpenSidebar, onLogout, isLoggingOut }: HeaderProps) {
             {isNotificationsOpen ? (
               <div className="absolute right-0 z-30 mt-2 w-90 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
                 <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Notifications
+                  </h3>
                   <button
                     type="button"
                     onClick={() => setIsNotificationsOpen(false)}
@@ -116,22 +165,33 @@ export function Header({ onOpenSidebar, onLogout, isLoggingOut }: HeaderProps) {
 
                 {notifications.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-slate-300 px-3 py-8 text-center">
-                    <p className="text-sm font-medium text-slate-700">No new notifications</p>
-                    <p className="mt-1 text-xs text-slate-500">Operational alerts will appear here.</p>
+                    <p className="text-sm font-medium text-slate-700">
+                      No new notifications
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Operational alerts will appear here.
+                    </p>
                   </div>
                 ) : (
                   <ul className="max-h-95 space-y-2 overflow-y-auto pr-1">
                     {notifications.map((notification) => (
-                      <li key={notification.id} className="rounded-lg border border-slate-200 p-3">
+                      <li
+                        key={notification.id}
+                        className="rounded-lg border border-slate-200 p-3"
+                      >
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium text-slate-900">{notification.title}</p>
+                          <p className="text-sm font-medium text-slate-900">
+                            {notification.title}
+                          </p>
                           <span
                             className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold ${notificationStyle(notification.category)}`}
                           >
                             {notificationLabel(notification.category)}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-slate-600">{notification.message}</p>
+                        <p className="mt-1 text-xs text-slate-600">
+                          {notification.message}
+                        </p>
                       </li>
                     ))}
                   </ul>
