@@ -423,6 +423,7 @@ export function useBookingsManagement() {
   };
 
   const handleCheckoutBooking = (bookingId: string) => {
+    setActionMessage(null);
     const booking = bookings.find((item) => item.id === bookingId);
 
     if (!booking) {

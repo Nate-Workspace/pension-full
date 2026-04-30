@@ -254,7 +254,7 @@ export function BookingsTableSection({
               <div className="flex justify-end gap-2">
                 {(() => {
                   const actions = getAvailableActions(booking.status);
-                  const isCheckoutPending = pendingCheckoutBookingId === booking.id;
+                  const isCheckoutPending = pendingCheckoutBookingId === booking.id && actionMessage ===null;
                   const isCancelPending = pendingCancelBookingId === booking.id;
                   const isRowBusy = isCheckoutPending || isCancelPending;
 
@@ -297,7 +297,7 @@ export function BookingsTableSection({
         onPageSizeChange={(nextPageSize) => updateUrlState({ pageSize: nextPageSize, page: 1 })}
       />
 
-      {actionMessage ? (
+      {actionMessage? (
         <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">{actionMessage}</p>
       ) : null}
 
