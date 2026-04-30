@@ -417,7 +417,7 @@ export class BookingsService {
     let result = 0;
 
     if (!sortBy || sortBy === 'createdAt') {
-      result = right.createdAt.localeCompare(left.createdAt);
+      result = left.createdAt.localeCompare(right.createdAt);
     } else if (sortBy === 'roomNumber') {
       const leftRoom = roomById?.get(left.roomId);
       const rightRoom = roomById?.get(right.roomId);

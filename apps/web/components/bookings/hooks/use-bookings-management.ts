@@ -318,6 +318,11 @@ export function useBookingsManagement() {
         return;
       }
 
+      // In edit mode, preserve the original room even if not in availableRooms
+      if (formState.id) {
+        return;
+      }
+
       setFormState((prev) => ({ ...prev, roomId: "" }));
       return;
     }
@@ -330,7 +335,7 @@ export function useBookingsManagement() {
       ...prev,
       roomId: availableRooms[0]?.id ?? "",
     }));
-  }, [availableRooms, formState.roomId, hasValidDateRange, isFormOpen, setFormState]);
+  }, [availableRooms, formState.roomId, formState.id, hasValidDateRange, isFormOpen, setFormState]);
 
   const selectedRoom = useMemo(() => {
     if (!formState.roomId) {
