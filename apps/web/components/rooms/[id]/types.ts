@@ -5,11 +5,14 @@ export type RoomBookingRow = {
   code: string;
   guestName: string;
   guestPhone?: string;
+  handledBy?: string;
+  roomLabel: string;
   status: BookingStatus;
   checkInDate: string;
   checkOutDate: string;
   nights: number;
   totalAmount: number;
+  paidAmount: number;
   paymentStatus: Booking["paymentStatus"];
   remainingAmount: number;
 };

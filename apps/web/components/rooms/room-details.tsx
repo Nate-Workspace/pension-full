@@ -21,7 +21,8 @@ type RoomDetailsProps = {
 export function RoomDetails({ roomId }: RoomDetailsProps) {
   const { isAdmin } = useAuth();
   const { room, roomBookings, isLoading, isNotFound } = useRoomDetailsData(roomId);
-  const { bookingRows, activeBooking, analytics } = useRoomDerivedData(roomBookings);
+  const roomLabel = room ? (room.name ? `${room.number} (${room.name})` : `Room ${room.number}`) : "";
+  const { bookingRows, activeBooking, analytics } = useRoomDerivedData(roomBookings, roomLabel);
   const { viewMonth, setViewMonth, calendarDays, reservationsByDay } = useRoomCalendar(roomBookings);
   const {
     isEditDrawerOpen,
@@ -55,7 +56,7 @@ export function RoomDetails({ roomId }: RoomDetailsProps) {
         />
       </section>
 
-      <RoomBookingsSection bookingRows={bookingRows} />
+      <RoomBookingsSection bookingRows={bookingRows} roomLabel={roomLabel} />
 
       <RoomFormDrawer
         isOpen={isEditDrawerOpen}

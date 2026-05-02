@@ -15,7 +15,12 @@ import {
 } from "recharts";
 
 import type { Booking, BookingStatus, Room } from "@/data";
-import { ChartWrapper, DataTable, MetricCard, StatusBadge } from "@/components/ui";
+import {
+  ChartWrapper,
+  DataTable,
+  MetricCard,
+  StatusBadge,
+} from "@/components/ui";
 import { apiFetch } from "@/lib/api-client";
 import { toIsoDate } from "@/lib/operations";
 
@@ -68,13 +73,13 @@ type CheckInItem = {
   checkOutDate: string;
 };
 
-type AlertRow = {
-  id: string;
-  category: "checkout" | "payment" | "cleaning";
-  subject: string;
-  detail: string;
-  status: string;
-};
+// type AlertRow = {
+//   id: string;
+//   category: "checkout" | "payment" | "cleaning";
+//   subject: string;
+//   detail: string;
+//   status: string;
+// };
 
 type PaginatedResponse<T> = {
   data: T[];
@@ -90,7 +95,9 @@ function formatCurrency(amount: number): string {
   return `${amount.toLocaleString("en-US")} Birr`;
 }
 
-function toNumber(value: number | string | readonly (number | string)[] | undefined): number {
+function toNumber(
+  value: number | string | readonly (number | string)[] | undefined,
+): number {
   if (Array.isArray(value)) {
     return toNumber(value[0]);
   }
@@ -145,29 +152,29 @@ function statusLabel(status: BookingStatus): string {
   return "Cancelled";
 }
 
-function alertCategoryStyles(category: AlertRow["category"]): string {
-  if (category === "checkout") {
-    return "border-amber-200 bg-amber-50 text-amber-700";
-  }
+// function alertCategoryStyles(category: AlertRow["category"]): string {
+//   if (category === "checkout") {
+//     return "border-amber-200 bg-amber-50 text-amber-700";
+//   }
 
-  if (category === "payment") {
-    return "border-rose-200 bg-rose-50 text-rose-700";
-  }
+//   if (category === "payment") {
+//     return "border-rose-200 bg-rose-50 text-rose-700";
+//   }
 
-  return "border-sky-200 bg-sky-50 text-sky-700";
-}
+//   return "border-sky-200 bg-sky-50 text-sky-700";
+// }
 
-function alertCategoryLabel(category: AlertRow["category"]): string {
-  if (category === "checkout") {
-    return "Check-out Today";
-  }
+// function alertCategoryLabel(category: AlertRow["category"]): string {
+//   if (category === "checkout") {
+//     return "Check-out Today";
+//   }
 
-  if (category === "payment") {
-    return "Payment Follow-up";
-  }
+//   if (category === "payment") {
+//     return "Payment Follow-up";
+//   }
 
-  return "Cleaning";
-}
+//   return "Cleaning";
+// }
 
 async function getJson<T>(response: Response, fallback: string): Promise<T> {
   if (!response.ok) {
@@ -184,35 +191,49 @@ export function DashboardOverview() {
     queryFn: async () => {
       const params = new URLSearchParams({ operationDay });
 
-      const [summaryResponse, trendsResponse, bookingsResponse, roomsResponse] = await Promise.all([
-        apiFetch(`/dashboard/summary?${params.toString()}`, {
-          method: "GET",
-          headers: { Accept: "application/json" },
-          cache: "no-store",
-        }),
-        apiFetch(`/dashboard/trends?${params.toString()}`, {
-          method: "GET",
-          headers: { Accept: "application/json" },
-          cache: "no-store",
-        }),
-        apiFetch("/bookings", {
-          method: "GET",
-          headers: { Accept: "application/json" },
-          cache: "no-store",
-        }),
-        apiFetch(`/rooms?${params.toString()}`, {
-          method: "GET",
-          headers: { Accept: "application/json" },
-          cache: "no-store",
-        }),
-      ]);
+      const [summaryResponse, trendsResponse, bookingsResponse, roomsResponse] =
+        await Promise.all([
+          apiFetch(`/dashboard/summary?${params.toString()}`, {
+            method: "GET",
+            headers: { Accept: "application/json" },
+            cache: "no-store",
+          }),
+          apiFetch(`/dashboard/trends?${params.toString()}`, {
+            method: "GET",
+            headers: { Accept: "application/json" },
+            cache: "no-store",
+          }),
+          apiFetch("/bookings", {
+            method: "GET",
+            headers: { Accept: "application/json" },
+            cache: "no-store",
+          }),
+          apiFetch(`/rooms?${params.toString()}`, {
+            method: "GET",
+            headers: { Accept: "application/json" },
+            cache: "no-store",
+          }),
+        ]);
 
-      const [summaryPayload, trendsPayload, bookingsPayload, roomsPayload] = await Promise.all([
-        getJson<DashboardSummary>(summaryResponse, "Failed to load dashboard summary."),
-        getJson<DashboardTrends>(trendsResponse, "Failed to load dashboard trends."),
-        getJson<PaginatedResponse<Booking>>(bookingsResponse, "Failed to load bookings."),
-        getJson<PaginatedResponse<Room>>(roomsResponse, "Failed to load rooms."),
-      ]);
+      const [summaryPayload, trendsPayload, bookingsPayload, roomsPayload] =
+        await Promise.all([
+          getJson<DashboardSummary>(
+            summaryResponse,
+            "Failed to load dashboard summary.",
+          ),
+          getJson<DashboardTrends>(
+            trendsResponse,
+            "Failed to load dashboard trends.",
+          ),
+          getJson<PaginatedResponse<Booking>>(
+            bookingsResponse,
+            "Failed to load bookings.",
+          ),
+          getJson<PaginatedResponse<Room>>(
+            roomsResponse,
+            "Failed to load rooms.",
+          ),
+        ]);
 
       return {
         bookings: bookingsPayload.data,
@@ -227,12 +248,15 @@ export function DashboardOverview() {
     console.error(error);
   }
 
-  const bookings = data?.bookings ?? [];
-  const rooms = data?.rooms ?? [];
+  const bookings = useMemo(() => data?.bookings ?? [], [data?.bookings]);
+  const rooms = useMemo (() => data?.rooms ?? [], [data?.rooms]);
   const summary = data?.summary ?? null;
   const trends = data?.trends ?? null;
 
-  const roomById = useMemo(() => new Map(rooms.map((room) => [room.id, room])), [rooms]);
+  const roomById = useMemo(
+    () => new Map(rooms.map((room) => [room.id, room])),
+    [rooms],
+  );
 
   const metrics = summary ?? {
     operationDay,
@@ -271,7 +295,10 @@ export function DashboardOverview() {
 
   const recentCheckIns = useMemo<CheckInItem[]>(() => {
     return bookings
-      .filter((booking) => booking.status === "confirmed" && booking.checkInDate >= operationDay)
+      .filter(
+        (booking) =>
+          booking.status === "confirmed" && booking.checkInDate >= operationDay,
+      )
       .sort((left, right) => left.checkInDate.localeCompare(right.checkInDate))
       .slice(0, 5)
       .map((booking) => {
@@ -289,56 +316,59 @@ export function DashboardOverview() {
       });
   }, [bookings, operationDay, roomById]);
 
-  const alerts = useMemo<AlertRow[]>(() => {
-    const checkoutTodayAlerts: AlertRow[] = bookings
-      .filter((booking) => booking.status !== "cancelled" && booking.checkOutDate === operationDay)
-      .map((booking) => {
-        const room = roomById.get(booking.roomId);
+  // const alerts = useMemo<AlertRow[]>(() => {
+  //   const checkoutTodayAlerts: AlertRow[] = bookings
+  //     .filter((booking) => booking.status !== "cancelled" && booking.checkOutDate === operationDay)
+  //     .map((booking) => {
+  //       const room = roomById.get(booking.roomId);
 
-        return {
-          id: `checkout-${booking.id}`,
-          category: "checkout",
-          subject: booking.guest.name,
-          detail: `${booking.guest.phone ? `${booking.guest.phone} • ` : ""}Room ${room?.number ?? "N/A"} checks out today (${dateLabel(operationDay)})`,
-          status: statusLabel(booking.status),
-        };
-      });
+  //       return {
+  //         id: `checkout-${booking.id}`,
+  //         category: "checkout",
+  //         subject: booking.guest.name,
+  //         detail: `${booking.guest.phone ? `${booking.guest.phone} • ` : ""}Room ${room?.number ?? "N/A"} checks out today (${dateLabel(operationDay)})`,
+  //         status: statusLabel(booking.status),
+  //       };
+  //     });
 
-    const paymentAlerts: AlertRow[] = bookings
-      .filter(
-        (booking) =>
-          booking.status !== "cancelled" &&
-          (booking.paymentStatus === "unpaid" || booking.paymentStatus === "partial"),
-      )
-      .map((booking) => {
-        return {
-          id: `payment-${booking.id}`,
-          category: "payment",
-          subject: booking.guest.name,
-          detail: `${formatCurrency(booking.remainingAmount)} pending for booking ${booking.code}`,
-          status: booking.paymentStatus === "partial" ? "Partially Paid" : "Unpaid",
-        };
-      });
+  //   const paymentAlerts: AlertRow[] = bookings
+  //     .filter(
+  //       (booking) =>
+  //         booking.status !== "cancelled" &&
+  //         (booking.paymentStatus === "unpaid" || booking.paymentStatus === "partial"),
+  //     )
+  //     .map((booking) => {
+  //       return {
+  //         id: `payment-${booking.id}`,
+  //         category: "payment",
+  //         subject: booking.guest.name,
+  //         detail: `${formatCurrency(booking.remainingAmount)} pending for booking ${booking.code}`,
+  //         status: booking.paymentStatus === "partial" ? "Partially Paid" : "Unpaid",
+  //       };
+  //     });
 
-    const cleaningRoomAlerts: AlertRow[] = rooms
-      .filter((room) => room.status === "cleaning")
-      .map((room) => ({
-        id: `cleaning-${room.id}`,
-        category: "cleaning",
-        subject: `Room ${room.number}`,
-        detail: "Room is marked for cleaning before next check-in",
-        status: "Cleaning",
-      }));
+  //   const cleaningRoomAlerts: AlertRow[] = rooms
+  //     .filter((room) => room.status === "cleaning")
+  //     .map((room) => ({
+  //       id: `cleaning-${room.id}`,
+  //       category: "cleaning",
+  //       subject: `Room ${room.number}`,
+  //       detail: "Room is marked for cleaning before next check-in",
+  //       status: "Cleaning",
+  //     }));
 
-    return [...checkoutTodayAlerts, ...paymentAlerts, ...cleaningRoomAlerts];
-  }, [bookings, operationDay, roomById, rooms]);
+  //   return [...checkoutTodayAlerts, ...paymentAlerts, ...cleaningRoomAlerts];
+  // }, [bookings, operationDay, roomById, rooms]);
 
   return (
     <div className="space-y-6">
       <section>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Operations Overview</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          Operations Overview
+        </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Real-time snapshot of room occupancy, check-ins, and revenue performance.
+          Real-time snapshot of room occupancy, check-ins, and revenue
+          performance.
         </p>
       </section>
 
@@ -351,7 +381,11 @@ export function DashboardOverview() {
         <MetricCard
           title="Occupied"
           value={isLoading ? "--" : String(metrics.occupiedRooms)}
-          change={{ value: `${metrics.occupancyRate}%`, direction: "up", label: "occupancy rate" }}
+          change={{
+            value: `${metrics.occupancyRate}%`,
+            direction: "up",
+            label: "occupancy rate",
+          }}
         />
         <MetricCard
           title="Available"
@@ -380,7 +414,7 @@ export function DashboardOverview() {
         />
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      {/* <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3">
           <h2 className="text-base font-semibold text-slate-900">Operational Alerts</h2>
           <p className="text-sm text-slate-500">
@@ -429,7 +463,7 @@ export function DashboardOverview() {
           emptyTitle="No active alerts"
           emptyDescription="All operations are currently up to date."
         />
-      </section>
+      </section> */}
 
       <section className="grid gap-4 xl:grid-cols-2">
         <ChartWrapper
@@ -447,7 +481,12 @@ export function DashboardOverview() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" />
-              <XAxis dataKey="label" stroke="#94a3b8" tickLine={false} axisLine={false} />
+              <XAxis
+                dataKey="label"
+                stroke="#94a3b8"
+                tickLine={false}
+                axisLine={false}
+              />
               <YAxis
                 stroke="#94a3b8"
                 tickLine={false}
@@ -476,7 +515,12 @@ export function DashboardOverview() {
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={revenueSeries}>
               <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" />
-              <XAxis dataKey="label" stroke="#94a3b8" tickLine={false} axisLine={false} />
+              <XAxis
+                dataKey="label"
+                stroke="#94a3b8"
+                tickLine={false}
+                axisLine={false}
+              />
               <YAxis
                 stroke="#94a3b8"
                 tickLine={false}
@@ -500,8 +544,12 @@ export function DashboardOverview() {
       <section className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3">
-            <h2 className="text-base font-semibold text-slate-900">Recent Bookings</h2>
-            <p className="text-sm text-slate-500">Latest reservations and booking statuses.</p>
+            <h2 className="text-base font-semibold text-slate-900">
+              Recent Bookings
+            </h2>
+            <p className="text-sm text-slate-500">
+              Latest reservations and booking statuses.
+            </p>
           </div>
 
           <DataTable<RecentBookingRow>
@@ -511,8 +559,12 @@ export function DashboardOverview() {
                 header: "Booking",
                 render: (row) => (
                   <div>
-                    <p className="font-medium text-slate-900">{row.bookingCode}</p>
-                    <p className="text-xs text-slate-500">Check-in {dateLabel(row.checkInDate)}</p>
+                    <p className="font-medium text-slate-900">
+                      {row.bookingCode}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Check-in {dateLabel(row.checkInDate)}
+                    </p>
                   </div>
                 ),
               },
@@ -521,8 +573,12 @@ export function DashboardOverview() {
                 header: "Guest",
                 render: (row) => (
                   <div>
-                    <p className="font-medium text-slate-900">{row.guestName}</p>
-                    {row.guestPhone ? <p className="text-xs text-slate-500">{row.guestPhone}</p> : null}
+                    <p className="font-medium text-slate-900">
+                      {row.guestName}
+                    </p>
+                    {row.guestPhone ? (
+                      <p className="text-xs text-slate-500">{row.guestPhone}</p>
+                    ) : null}
                   </div>
                 ),
               },
@@ -560,14 +616,21 @@ export function DashboardOverview() {
 
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3">
-            <h2 className="text-base font-semibold text-slate-900">Upcoming Check-ins</h2>
-            <p className="text-sm text-slate-500">Guests arriving from today onwards.</p>
+            <h2 className="text-base font-semibold text-slate-900">
+              Upcoming Check-ins
+            </h2>
+            <p className="text-sm text-slate-500">
+              Guests arriving from today onwards.
+            </p>
           </div>
 
           {isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }, (_, index) => (
-                <div key={`checkin-loading-${index}`} className="rounded-lg border border-slate-200 p-3">
+                <div
+                  key={`checkin-loading-${index}`}
+                  className="rounded-lg border border-slate-200 p-3"
+                >
                   <div className="h-4 animate-pulse rounded bg-slate-100" />
                   <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-slate-100" />
                 </div>
@@ -575,21 +638,37 @@ export function DashboardOverview() {
             </div>
           ) : recentCheckIns.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-300 px-4 py-10 text-center">
-              <p className="text-sm font-medium text-slate-700">No upcoming check-ins</p>
-              <p className="mt-1 text-sm text-slate-500">New arrivals will be listed here.</p>
+              <p className="text-sm font-medium text-slate-700">
+                No upcoming check-ins
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                New arrivals will be listed here.
+              </p>
             </div>
           ) : (
             <ul className="space-y-3">
               {recentCheckIns.map((item) => (
-                <li key={item.id} className="rounded-lg border border-slate-200 p-3">
+                <li
+                  key={item.id}
+                  className="rounded-lg border border-slate-200 p-3"
+                >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium text-slate-900">{item.guestName}</p>
+                    <p className="font-medium text-slate-900">
+                      {item.guestName}
+                    </p>
                     <StatusBadge status={item.roomStatus} />
                   </div>
-                  {item.guestPhone ? <p className="mt-1 text-xs text-slate-500">{item.guestPhone}</p> : null}
-                  <p className="mt-1 text-sm text-slate-600">Room {item.roomNumber}</p>
+                  {item.guestPhone ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      {item.guestPhone}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-sm text-slate-600">
+                    Room {item.roomNumber}
+                  </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {dateLabel(item.checkInDate)} - {dateLabel(item.checkOutDate)}
+                    {dateLabel(item.checkInDate)} -{" "}
+                    {dateLabel(item.checkOutDate)}
                   </p>
                 </li>
               ))}
