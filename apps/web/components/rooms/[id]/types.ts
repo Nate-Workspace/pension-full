@@ -1,21 +1,6 @@
-import type { Booking, BookingStatus, Room } from "@/data";
+import type { Booking, Room } from "@/data";
 
-export type RoomBookingRow = {
-  id: string;
-  code: string;
-  guestName: string;
-  guestPhone?: string;
-  handledBy?: string;
-  roomLabel: string;
-  status: BookingStatus;
-  checkInDate: string;
-  checkOutDate: string;
-  nights: number;
-  totalAmount: number;
-  paidAmount: number;
-  paymentStatus: Booking["paymentStatus"];
-  remainingAmount: number;
-};
+export type RoomBookingRow = Booking;
 
 export type CalendarDay = {
   key: string;

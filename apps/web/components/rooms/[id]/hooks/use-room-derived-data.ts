@@ -3,27 +3,8 @@ import type { Booking } from "@/data";
 import type { RoomAnalytics, RoomBookingRow } from "../types";
 import { computeOccupancyRate } from "../utils";
 
-export function useRoomDerivedData(roomBookings: Booking[], roomLabel: string) {
-  const bookingRows = useMemo<RoomBookingRow[]>(() => {
-    return roomBookings.map((booking) => {
-      return {
-        id: booking.id,
-        code: booking.code,
-        guestName: booking.guest.name,
-        guestPhone: booking.guest.phone,
-        handledBy: booking.handledBy,
-        roomLabel,
-        status: booking.status,
-        checkInDate: booking.checkInDate,
-        checkOutDate: booking.checkOutDate,
-        nights: booking.nights,
-        totalAmount: booking.totalAmount,
-        paidAmount: booking.paidAmount,
-        paymentStatus: booking.paymentStatus,
-        remainingAmount: booking.remainingAmount,
-      };
-    });
-  }, [roomBookings, roomLabel]);
+export function useRoomDerivedData(roomBookings: Booking[]) {
+  const bookingRows = useMemo<RoomBookingRow[]>(() => roomBookings, [roomBookings]);
 
   const activeBooking = useMemo(() => {
     return roomBookings.find((booking) => booking.status === "active") ?? null;

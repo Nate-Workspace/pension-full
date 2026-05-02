@@ -16,7 +16,7 @@ import type { BookingFilter } from "../../../bookings/services/bookings-service"
 
 type RoomBookingsSectionProps = {
   bookingRows: RoomBookingRow[];
-  roomLabel: string;
+  roomById: Map<string, { id: string; name: string; number: string }>;
 };
 
 const STATUS_OPTIONS: Array<{ value: BookingFilter; label: string }> = [
@@ -27,7 +27,10 @@ const STATUS_OPTIONS: Array<{ value: BookingFilter; label: string }> = [
   { value: "all", label: "All statuses" },
 ];
 
-export function RoomBookingsSection({ bookingRows, roomLabel }: RoomBookingsSectionProps) {
+export function RoomBookingsSection({
+  bookingRows,
+  roomById,
+}: RoomBookingsSectionProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<BookingFilter>("all");
   const [page, setPage] = useState(1);
@@ -36,8 +39,8 @@ export function RoomBookingsSection({ bookingRows, roomLabel }: RoomBookingsSect
   const filteredRows = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
-    return bookingRows.filter((row) => {
-      if (statusFilter !== "all" && row.status !== statusFilter) {
+    return bookingRows.filter((booking) => {
+      if (statusFilter !== "all" && booking.status !== statusFilter) {
         return false;
       }
 
@@ -45,12 +48,19 @@ export function RoomBookingsSection({ bookingRows, roomLabel }: RoomBookingsSect
         return true;
       }
 
-      const searchableText = [row.code, row.guestName, row.guestPhone ?? ""].join(" ").toLowerCase();
+      const searchableText = [
+        booking.code,
+        booking.guest.name,
+        booking.guest.phone ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
       return searchableText.includes(normalizedSearch);
     });
   }, [bookingRows, search, statusFilter]);
 
-  const totalPages = filteredRows.length > 0 ? Math.ceil(filteredRows.length / pageSize) : 0;
+  const totalPages =
+    filteredRows.length > 0 ? Math.ceil(filteredRows.length / pageSize) : 0;
   const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1;
   const pageRows = useMemo(() => {
     const startIndex = (safePage - 1) * pageSize;
@@ -92,50 +102,63 @@ export function RoomBookingsSection({ bookingRows, roomLabel }: RoomBookingsSect
           {
             key: "guest",
             header: "Guest Info",
-            render: (row) => (
+            render: (booking) => (
               <div>
-                <p className="font-medium text-slate-900">{row.code}</p>
-                <p className="text-xs text-slate-500">
-                  {row.guestName}
-                  {row.guestPhone ? ` • ${row.guestPhone}` : "No phone"}
+                <p className="font-medium text-slate-900">
+                  {booking.guest.name}
                 </p>
-                <p className="text-xs text-slate-500">Handled by: {row.handledBy ?? "Unassigned"}</p>
+                <p className="text-xs text-slate-500">
+                  {booking.guest.phone ?? "No phone"}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Handled by: {booking.handledBy ?? "Unassigned"}
+                </p>
               </div>
             ),
           },
           {
             key: "room",
             header: "Room",
-            render: () => roomLabel,
+            render: (booking) => {
+              const room = roomById.get(booking.roomId);
+              if (!room) {
+                return "N/A";
+              }
+
+              return room.name
+                ? `${room.number} (${room.name})`
+                : `Room ${room.number}`;
+            },
           },
           {
             key: "stay",
             header: "Stay",
-            render: (row) => (
+            render: (booking) => (
               <span className="text-xs text-slate-600">
-                {formatDate(row.checkInDate)} - {formatDate(row.checkOutDate)}
+                {formatDate(booking.checkInDate)} -{" "}
+                {formatDate(booking.checkOutDate)}
               </span>
             ),
           },
           {
             key: "status",
             header: "Status",
-            render: (row) => (
+            render: (booking) => (
               <span
-                className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${bookingStatusStyle(row.status)}`}
+                className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${bookingStatusStyle(booking.status)}`}
               >
-                {bookingStatusLabel(row.status)}
+                {bookingStatusLabel(booking.status)}
               </span>
             ),
           },
           {
-            key: "payment",
+            key: "paymentStatus",
             header: "Payment Status",
-            render: (row) => (
+            render: (booking) => (
               <span
-                className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${paymentStatusStyle(row.paymentStatus)}`}
+                className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${paymentStatusStyle(booking.paymentStatus)}`}
               >
-                {paymentStatusLabel(row.paymentStatus)}
+                {paymentStatusLabel(booking.paymentStatus)}
               </span>
             ),
           },
@@ -143,13 +166,13 @@ export function RoomBookingsSection({ bookingRows, roomLabel }: RoomBookingsSect
             key: "paid",
             header: "Paid",
             align: "right",
-            render: (row) => formatMoney(row.paidAmount),
+            render: (booking) => formatMoney(booking.paidAmount),
           },
           {
             key: "remaining",
             header: "Remaining",
             align: "right",
-            render: (row) => formatMoney(row.remainingAmount),
+            render: (booking) => formatMoney(booking.remainingAmount),
           },
         ]}
         data={pageRows}
