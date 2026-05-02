@@ -13,7 +13,7 @@ export function RoomDetailsEmptyState({
 }: RoomDetailsEmptyStateProps) {
   if (isLoading) return <RoomDetailsLoadingSkeleton />;
   if (isNotFound) return <NotFoundState />;
-  return <RoomDetailsErrorState />;
+  return <RoomDetailsErrorState onRetry={() => window.location.reload()}/>;
 }
 
 function RoomDetailsLoadingSkeleton() {
