@@ -115,9 +115,9 @@ export function Header({ onOpenSidebar, onLogout, isLoggingOut }: HeaderProps) {
           <nav className="hidden sm:flex items-center text-sm text-slate-500">
 
             {breadcrumbs.map((crumb, index) => (
-              <link key={crumb.href} className="flex items-end">
+              <span key={crumb.href} className="flex items-end">
                 <span className="mx-2 text-slate-400">/</span>
-                <span
+                <Link href={crumb.href}
                   className={`${
                     index === breadcrumbs.length - 1
                       ? "text-slate-900 font-medium"
@@ -125,8 +125,8 @@ export function Header({ onOpenSidebar, onLogout, isLoggingOut }: HeaderProps) {
                   }`}
                 >
                   {crumb.label}
-                </span>
-              </link>
+                </Link>
+              </span>
             ))}
           </nav>
         </div>
