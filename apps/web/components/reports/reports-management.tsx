@@ -28,7 +28,7 @@ export function ReportsManagement() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Reports & Analytics</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Analyze occupancy, booking behavior, and revenue performance across selected dates.
+            Analyze Occupancy, booking behavior, and revenue performance across selected dates.
           </p>
         </div>
 
