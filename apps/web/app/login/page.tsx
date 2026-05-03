@@ -223,9 +223,9 @@ export default function LoginPage() {
                 {isSubmitting ? "Signing in..." : "Login"}
               </button>
 
-              <p className="text-center text-xs text-slate-500 hover:text-slate-700 cursor-pointer">
+              {/* <p className="text-center text-xs text-slate-500 hover:text-slate-700 cursor-pointer">
                 Forgot Password
-              </p>
+              </p> */}
             </form>
           </section>
           {/* Decorative curved lines */}

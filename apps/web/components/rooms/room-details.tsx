@@ -53,6 +53,7 @@ export function RoomDetails({ roomId }: RoomDetailsProps) {
           setViewMonth={setViewMonth}
           calendarDays={calendarDays}
           reservationsByDay={reservationsByDay}
+          roomName={room.name}
         />
       </section>
 

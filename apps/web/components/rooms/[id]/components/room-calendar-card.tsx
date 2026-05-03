@@ -1,12 +1,19 @@
 import type { Booking } from "@/data";
 import type { CalendarDay } from "../types";
-import { bookingStatusLabel, bookingStatusStyle, formatMonthLabel, startOfMonthUTC, WEEKDAYS } from "../utils";
+import {
+  bookingStatusLabel,
+  formatMonthLabel,
+  startOfMonthUTC,
+  WEEKDAYS,
+} from "../utils";
+import { CalendarReservation } from "@/components/bookings/hooks/use-bookings-management";
 
 type RoomCalendarCardProps = {
   viewMonth: Date;
   setViewMonth: React.Dispatch<React.SetStateAction<Date>>;
   calendarDays: CalendarDay[];
   reservationsByDay: Map<string, Booking[]>;
+  roomName: string;
 };
 
 export function RoomCalendarCard({
@@ -14,32 +21,66 @@ export function RoomCalendarCard({
   setViewMonth,
   calendarDays,
   reservationsByDay,
+  roomName,
 }: RoomCalendarCardProps) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-slate-900">Reservation Calendar</h2>
+        <h2 className="text-base font-semibold text-slate-900">
+          Reservation Calendar
+        </h2>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() =>
-              setViewMonth((current) => startOfMonthUTC(current.getUTCFullYear(), current.getUTCMonth() - 1))
+              setViewMonth((current) =>
+                startOfMonthUTC(
+                  current.getUTCFullYear(),
+                  current.getUTCMonth() - 1,
+                ),
+              )
             }
             className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"
           >
             Prev
           </button>
-          <p className="min-w-28 text-center text-xs font-semibold text-slate-700">{formatMonthLabel(viewMonth)}</p>
+          <p className="min-w-28 text-center text-xs font-semibold text-slate-700">
+            {formatMonthLabel(viewMonth)}
+          </p>
           <button
             type="button"
             onClick={() =>
-              setViewMonth((current) => startOfMonthUTC(current.getUTCFullYear(), current.getUTCMonth() + 1))
+              setViewMonth((current) =>
+                startOfMonthUTC(
+                  current.getUTCFullYear(),
+                  current.getUTCMonth() + 1,
+                ),
+              )
             }
             className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-100"
           >
             Next
           </button>
         </div>
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          Active
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-blue-500" />
+          Upcoming
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-slate-500" />
+          Checked Out
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-rose-500" />
+          Canceled
+        </span>
       </div>
 
       <div className="grid grid-cols-7 gap-1.5">
@@ -59,24 +100,26 @@ export function RoomCalendarCard({
             <div
               key={day.key}
               className={`min-h-20 rounded-md border p-1.5 ${
-                day.isCurrentMonth ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50"
+                day.isCurrentMonth
+                  ? "border-slate-200 bg-white hover:border-slate-300 hover:cursor-pointer"
+                  : "border-slate-100 bg-slate-50 hover:border-slate-200 hover:cursor-pointer"
               }`}
             >
-              <p className="text-[11px] font-semibold text-slate-700">{day.date.getUTCDate()}</p>
+              <p className="text-[11px] font-semibold text-slate-700">
+                {day.date.getUTCDate()}
+              </p>
               <div className="mt-1 space-y-1">
                 {dayBookings.slice(0, 2).map((booking) => (
-                  <div
+                  <span
                     key={`${day.key}-${booking.id}`}
-                    className={`truncate rounded border px-1 py-0.5 text-[10px] font-medium ${bookingStatusStyle(
-                      booking.status,
-                    )}`}
-                    title={`${booking.guest.name} (${bookingStatusLabel(booking.status)})`}
-                  >
-                    {booking.guest.name}
-                  </div>
+                    className={`inline-block h-2.5 w-2.5 mr-1 rounded-full ${getStatusDotClass(booking.status)}`}
+                    title={`${bookingStatusLabel(booking.status)} - ${booking.guest.name} (${roomName})`}
+                  />
                 ))}
                 {dayBookings.length > 2 ? (
-                  <p className="text-[10px] font-medium text-slate-500">+{dayBookings.length - 2} more</p>
+                  <p className="text-[10px] font-medium text-slate-500">
+                    +{dayBookings.length - 2} more
+                  </p>
                 ) : null}
               </div>
             </div>
@@ -85,4 +128,20 @@ export function RoomCalendarCard({
       </div>
     </div>
   );
+}
+
+function getStatusDotClass(status: CalendarReservation["status"]): string {
+  if (status === "active") {
+    return "bg-emerald-500";
+  }
+
+  if (status === "upcoming") {
+    return "bg-blue-500";
+  }
+
+  if (status === "checked_out") {
+    return "bg-slate-500";
+  }
+
+  return "bg-rose-500";
 }

@@ -32,9 +32,9 @@ export function ReportsManagement() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
+        <div className="flex flex-wrap items-end gap-4 rounded-lg border border-slate-200 bg-white p-3">
           <label className="space-y-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Start Date</span>
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500 mr-2">Start Date:</span>
             <input
               type="date"
               value={startDate}
@@ -44,7 +44,7 @@ export function ReportsManagement() {
           </label>
 
           <label className="space-y-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">End Date</span>
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500 mr-2">End Date:</span>
             <input
               type="date"
               value={endDate}

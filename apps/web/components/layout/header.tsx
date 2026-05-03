@@ -86,7 +86,7 @@ export function Header({ onOpenSidebar, onLogout, isLoggingOut }: HeaderProps) {
         </div>
 
         <div className="ml-auto flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5">
+          <div className="flex items-center gap-2 rounded-md border border-slate-200 px-2 py-1.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
               {avatarLabel}
             </div>
