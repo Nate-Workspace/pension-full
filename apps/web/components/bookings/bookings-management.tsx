@@ -57,7 +57,7 @@ export function BookingsManagement() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Booking Management</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Track reservation lifecycle, manage changes, and monitor availability in calendar view.
+            Track reservation, manage changes, and monitor availability in calendar view.
           </p>
         </div>
 
