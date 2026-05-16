@@ -15,8 +15,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bego Management Admin",
+  title: "StayFlow - Pension Management Suite",
   description: "Pension management dashboard for rooms, bookings, payments, and operations.",
+  icons: {
+    icon: "/logo1.png",
+    apple: "/logo1.png",
+    shortcut: "/logo1.png",
+  },
 };
 
 export default function RootLayout({

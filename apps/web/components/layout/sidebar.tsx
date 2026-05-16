@@ -8,6 +8,7 @@ import {
   IconLayoutDashboard,
   IconSettings,
 } from "@tabler/icons-react";
+import Image from "next/image";
 
 import type { NavItem } from "@/lib/navigation";
 
@@ -34,12 +35,12 @@ export function Sidebar({ items, pathname, onNavigate }: SidebarProps) {
   return (
     <aside className="flex h-full w-full flex-col border-r border-slate-200 bg-white">
       <div className="border-b border-slate-200 px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-          Manage
-        </p>
-        <h1 className="mt-2 text-lg font-semibold text-slate-900">Hillside Guest House</h1>
+        <h1 className="mt-2 text-lg font-semibold text-slate-900">
+          Hillside Guest House
+        </h1>
       </div>
 
+      {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {items.map((item) => {
           const active = isActive(pathname, item.href);
@@ -55,14 +56,41 @@ export function Sidebar({ items, pathname, onNavigate }: SidebarProps) {
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               }`}
             >
-              <span aria-hidden="true" className="inline-flex shrink-0 items-center justify-center">
+              <span
+                aria-hidden="true"
+                className="inline-flex shrink-0 items-center justify-center"
+              >
                 {navIcons[item.href]}
               </span>
+
               {item.label}
             </Link>
           );
         })}
       </nav>
+
+      {/* Bottom Branding */}
+      <div className="border-t border-slate-200 px-4 py-4">
+        <div className="flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-3">
+          <div className="flex h-10 px-2 items-center justify-center rounded-lg bg-white shadow-sm">
+            <Image
+              src="/logo1.png"
+              alt="StayFlow logo"
+              width={100}
+              height={32}
+              className="h-8 w-auto object-contain"
+            />
+          </div>
+
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-900">
+              Hillside Guest House
+            </p>
+
+            <p className="truncate text-xs text-slate-500">StayFlow PMS v1.0</p>
+          </div>
+        </div>
+      </div>
     </aside>
   );
 }

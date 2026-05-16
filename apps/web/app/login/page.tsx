@@ -118,7 +118,7 @@ export default function LoginPage() {
         <section className="flex flex-col justify-center px-6 py-12 sm:px-10 lg:px-36">
           <div className="max-w-xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-emerald-800">
-              Pension Management Suite
+              StayFlow - Pension Management Suite
             </div>
 
             <h1 className="mt-6 text-3xl font-semibold sm:text-4xl lg:text-5xl">

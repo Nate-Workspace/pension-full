@@ -1,159 +1,128 @@
-# Turborepo starter
+# Pension Management System
 
-This Turborepo starter is maintained by the Turborepo core team.
+This project is a monorepo for a guest-house/pension management platform. It includes a Next.js dashboard for operations and a NestJS API for bookings, rooms, payments, and reporting.
 
-## Using this example
+## Key Features
 
-Run the following command:
+- Room and booking management with status tracking
+- Payments and reporting views
+- Role-based access (admin/staff)
+- Operational dashboards and calendar views
+- Shared contracts and types across frontend and backend
 
-```sh
-npx create-turbo@latest
+## Tech Stack
+
+- Next.js 16 (App Router) and React 19
+- NestJS 11 API
+- Drizzle ORM with Postgres/Neon
+- TanStack Query and Tailwind CSS
+- Turborepo + pnpm workspaces
+
+## Repository Layout
+
+- [apps/web](apps/web): Next.js dashboard
+- [apps/nest-back](apps/nest-back): NestJS API
+- [packages/db](packages/db): Drizzle schema and DB helpers
+- [packages/contracts](packages/contracts): Shared API contracts (Zod)
+- [packages/types](packages/types): Shared type definitions
+- [packages/ui](packages/ui): Shared UI components
+- [packages/eslint-config](packages/eslint-config): ESLint rules
+- [packages/typescript-config](packages/typescript-config): Base TS configs
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js >= 18
+- pnpm 9
+- Postgres (local) or Neon
+
+### Install
+
+```bash
+pnpm install
 ```
 
-## What's inside?
+### Environment Variables
 
-This Turborepo includes the following packages/apps:
+Create a `.env` at the repo root (loaded by the API and DB packages). Minimum variables:
 
-### Apps and Packages
+```bash
+# Backend (Nest js api)
+PORT=5000
+JWT_SECRET= 'write your secret here'
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+# Workspace .env file ( root env)
+NEON_DATABASE_URL= 'your neon url here'
+DATABASE_URL = 'your local db url here'
+DB_PROVIDER=neon
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+# Web
+API_URL=http://localhost:5000/
+NEXT_PUBLIC_API_URL=http://localhost:5000/
 ```
 
-Without global `turbo`, use your package manager:
+Notes:
 
-```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+- If `DB_PROVIDER` is not set, Neon is selected when `NEON_DATABASE_URL` is present; otherwise local Postgres is used.
+- `JWT_SECRET` defaults to `dev-secret` if not provided (set it in production).
+
+### Run the Stack
+
+Run everything with Turborepo:
+
+```bash
+pnpm dev
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+Or run apps individually:
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
+```bash
+pnpm --filter nest-back dev
+pnpm --filter web dev
 ```
 
-Without global `turbo`:
+The web app runs on `http://localhost:3000` by default. The API runs on `http://localhost:5000` unless `PORT` is set.
 
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+## Database
+
+Drizzle config lives in [packages/db](packages/db) and reads connection settings from the root `.env`. Migrations are stored in `packages/db/drizzle`.
+
+### Seed Data
+
+The API provides a seed script with default users:
+
+```bash
+pnpm --filter nest-back seed
 ```
 
-### Develop
+Default users are defined in [apps/nest-back/src/seed.ts](apps/nest-back/src/seed.ts).
 
-To develop all apps and packages, run the following command:
+## Common Scripts
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+From the repo root:
 
-```sh
-cd my-turborepo
-turbo dev
+```bash
+pnpm dev
+pnpm build
+pnpm lint
+pnpm test
+pnpm check-types
+pnpm format
 ```
 
-Without global `turbo`, use your package manager:
+From a specific app or package:
 
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
+```bash
+pnpm --filter web dev
+pnpm --filter nest-back dev
+pnpm --filter @repo/db check-types
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## Authentication
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+The API uses HTTP-only cookies (`access_token`) for sessions. The web app consumes the API via `NEXT_PUBLIC_API_URL` with `credentials: include`.
 
-```sh
-turbo dev --filter=web
-```
+## License
 
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+Private repository. All rights reserved.
