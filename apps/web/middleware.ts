@@ -5,6 +5,10 @@ const LOGIN_PATH = "/auth/login";
 const AUTH_COOKIE_NAME = "access_token";
 
 export function middleware(request: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.next();
+  }
+
   const { pathname } = request.nextUrl;
   const hasAuthCookie = Boolean(request.cookies.get(AUTH_COOKIE_NAME)?.value);
 

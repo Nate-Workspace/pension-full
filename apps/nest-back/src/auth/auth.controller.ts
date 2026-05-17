@@ -26,6 +26,7 @@ type CookieOptions = {
   httpOnly: boolean;
   secure: boolean;
   sameSite: 'lax' | 'none';
+  domain?: string;
   path: '/';
   maxAge: number;
 };
@@ -35,11 +36,13 @@ const AUTH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 function getAuthCookieOptions(): CookieOptions {
   const isProduction = process.env.NODE_ENV === 'production';
+  const cookieDomain = process.env.AUTH_COOKIE_DOMAIN?.trim() || undefined;
 
   return {
     httpOnly: true,
     secure: isProduction,
     sameSite: isProduction ? 'none' : 'lax',
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
     path: '/',
     maxAge: AUTH_COOKIE_MAX_AGE,
   };
@@ -74,11 +77,13 @@ export class AuthController {
   @Post('logout')
   logout(@Res({ passthrough: true }) response: AuthCookieResponse) {
     const isProduction = process.env.NODE_ENV === 'production';
+    const cookieDomain = process.env.AUTH_COOKIE_DOMAIN?.trim() || undefined;
 
     response.clearCookie(AUTH_COOKIE_NAME, {
       httpOnly: true,
       secure: isProduction,
       sameSite: isProduction ? 'none' : 'lax',
+      ...(cookieDomain ? { domain: cookieDomain } : {}),
       path: '/',
     });
 
