@@ -18,6 +18,11 @@ This project is a monorepo for a guest-house/pension management platform. It inc
 - TanStack Query and Tailwind CSS
 - Turborepo + pnpm workspaces
 
+## Screenshots
+
+![Login](apps/web/public/login.png)
+![Reports](apps/web/public/reports.png)
+
 ## Repository Layout
 
 - [apps/web](apps/web): Next.js dashboard
@@ -45,12 +50,14 @@ pnpm install
 
 ### Environment Variables
 
-Create a `.env` at the repo root (loaded by the API and DB packages). Minimum variables:
+Create a `.env` at the repo root, web( frontend directory ) and the nest-back( the api directory). And here are the minimum variables in each:
 
 ```bash
 # Backend (Nest js api)
 PORT=5000
 JWT_SECRET= 'write your secret here'
+FRONTEND_URL=http://localhost:3001
+NODE_ENV=development
 
 # Workspace .env file ( root env)
 NEON_DATABASE_URL= 'your neon url here'

@@ -7,11 +7,11 @@ loadEnv({ path: '../../.env' });
 loadEnv({ path: './.env', override: true });
 
 function parseAllowedOrigins(): string[] {
-  const configured = [
-    process.env.FRONTEND_URL,
-    process.env.FRONTEND_URLS,
-  ]
-    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+  const configured = [process.env.FRONTEND_URL, process.env.FRONTEND_URLS]
+    .filter(
+      (value): value is string =>
+        typeof value === 'string' && value.trim().length > 0,
+    )
     .flatMap((value) => value.split(','))
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
