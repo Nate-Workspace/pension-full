@@ -272,7 +272,7 @@ All items below are **explicitly scheduled in implementation phases**.
 - [x] DB migration: `site_config`, page content tables, entity tables + `online` payment method
 - [x] `PublicModule` with read endpoints; `CmsModule` scaffold (admin-only)
 - [x] Middleware fix: public route allowlist + protect `/cms`
-- Move `/` to public home; dashboard stays at `/dashboard`
+- [x] Move `/` to public home; dashboard stays at `/dashboard`
 - Add **Website (CMS)** nav item (admin only)
 
 ### Phase 2 — Booking engine + credibility rules

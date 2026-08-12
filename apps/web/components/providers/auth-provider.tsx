@@ -1,10 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { usePathname } from "next/navigation";
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 
 import { apiFetch } from "@/lib/api-client";
+import { isPublicPath } from "@/lib/route-access";
 
 export type AuthUser = {
   id: string;
@@ -49,6 +51,9 @@ type AuthProviderProps = {
 };
 
 export function AuthProvider({ children }: AuthProviderProps) {
+  const pathname = usePathname();
+  const isPublicRoute = isPublicPath(pathname);
+
   const authQuery = useQuery({
     queryKey: AUTH_QUERY_KEY,
     queryFn: fetchCurrentUser,
@@ -60,7 +65,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const user = authQuery.data ?? null;
   const isLoading = authQuery.isPending;
 
-  if (isLoading) {
+  if (isLoading && !isPublicRoute) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-slate-900">
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
