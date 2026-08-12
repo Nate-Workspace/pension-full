@@ -26,9 +26,9 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const visibleNavigation = isAdmin
-    ? dashboardNavigation
-    : dashboardNavigation.filter((item) => item.href !== '/settings' && item.href !== '/reports');
+  const visibleNavigation = dashboardNavigation.filter(
+    (item) => !item.adminOnly || isAdmin,
+  );
 
   const performLogout = () => {
     void (async () => {

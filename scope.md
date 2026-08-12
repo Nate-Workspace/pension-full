@@ -273,7 +273,7 @@ All items below are **explicitly scheduled in implementation phases**.
 - [x] `PublicModule` with read endpoints; `CmsModule` scaffold (admin-only)
 - [x] Middleware fix: public route allowlist + protect `/cms`
 - [x] Move `/` to public home; dashboard stays at `/dashboard`
-- Add **Website (CMS)** nav item (admin only)
+- [x] Add **Website (CMS)** nav item (admin only)
 
 ### Phase 2 — Booking engine + credibility rules
 
@@ -363,7 +363,7 @@ All items below are **explicitly scheduled in implementation phases**.
 
 ## Implementation Checklist
 
-- [ ] Phase 1 — Foundation (backend + routing)
+- [x] Phase 1 — Foundation (backend + routing)
 - [ ] Phase 2 — Booking engine + credibility rules
 - [ ] Phase 3 — Public frontend + booking UX
 - [ ] Phase 4 — Dedicated CMS
