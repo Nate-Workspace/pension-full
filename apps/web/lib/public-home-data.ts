@@ -28,6 +28,7 @@ const EMPTY_SITE_CONFIG: SiteConfigResponse = {
   mapLat: "",
   mapLng: "",
   allowOnlineBookings: true,
+  sameDayBookingCutoffTime: "18:00",
   contactPhone: "",
   contactEmail: "",
   address: "",

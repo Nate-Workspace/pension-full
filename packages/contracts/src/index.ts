@@ -27,6 +27,7 @@ export {
 	siteFaqSchema,
 	siteGalleryItemSchema,
 	sitePageSectionSchema,
+	timeOfDaySchema,
 } from "./site-content";
 export { authSchemas, loginSchema, registerSchema } from "./auth";
 export {

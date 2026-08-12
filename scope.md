@@ -279,7 +279,7 @@ All items below are **explicitly scheduled in implementation phases**.
 
 - [x] Availability endpoint — sanitized, future/present only, no guest PII (**#8, #9**)
 - [x] Reject maintenance rooms server-side (**#8**)
-- Minimum advance booking rule (**#14**)
+- [x] Minimum advance booking rule (**#14**)
 - `POST /public/bookings/checkout` — atomic booking + payment with overlap check in transaction
 - `GET /public/bookings/lookup` — code + phone/email, 404 on mismatch (**#2**)
 - Rate limiting on public write endpoints

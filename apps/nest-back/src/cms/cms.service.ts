@@ -238,6 +238,8 @@ export class CmsService {
             : input.allowOnlineBookings
               ? 1
               : 0,
+        sameDayBookingCutoffTime:
+          input.sameDayBookingCutoffTime ?? current.sameDayBookingCutoffTime,
         contactPhone: input.contactPhone ?? current.contactPhone,
         contactEmail: input.contactEmail ?? current.contactEmail,
         address: input.address ?? current.address,
@@ -547,6 +549,7 @@ export class CmsService {
       mapLat: record.mapLat,
       mapLng: record.mapLng,
       allowOnlineBookings: record.allowOnlineBookings === 1,
+      sameDayBookingCutoffTime: record.sameDayBookingCutoffTime,
       contactPhone: record.contactPhone,
       contactEmail: record.contactEmail,
       address: record.address,

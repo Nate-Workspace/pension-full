@@ -38,10 +38,10 @@
       "breakpoints": true
     },
     {
-      "idx": 5,
+      "idx": 6,
       "version": "7",
-      "when": 1776461400000,
-      "tag": "0005_site_content_cms",
+      "when": 1776547800000,
+      "tag": "0006_same_day_booking_cutoff",
       "breakpoints": true
     }
   ]

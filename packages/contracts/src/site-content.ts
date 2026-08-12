@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export const timeOfDaySchema = z
+	.string()
+	.regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Time must use HH:mm format.");
+
 export const sitePageSectionSchema = z.object({
 	sectionKey: z.string(),
 	content: z.string(),
@@ -51,6 +55,7 @@ export const siteConfigResponseSchema = z.object({
 	mapLat: z.string(),
 	mapLng: z.string(),
 	allowOnlineBookings: z.boolean(),
+	sameDayBookingCutoffTime: timeOfDaySchema,
 	contactPhone: z.string(),
 	contactEmail: z.string(),
 	address: z.string(),

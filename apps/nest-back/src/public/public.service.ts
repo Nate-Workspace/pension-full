@@ -29,6 +29,7 @@ import {
 import {
   assertPublicBookableRoom,
   assertPublicVisibleRoom,
+  assertMinimumAdvanceBooking,
   isPublicBookableRoom,
 } from './public-booking-rules';
 
@@ -224,6 +225,16 @@ export class PublicService {
     return room;
   }
 
+  async assertPublicBookingDates(
+    checkInDate: string,
+    checkOutDate: string,
+  ): Promise<void> {
+    const siteConfigRecord = await this.getOrCreateSiteConfig();
+    assertMinimumAdvanceBooking(checkInDate, checkOutDate, {
+      sameDayBookingCutoffTime: siteConfigRecord.sameDayBookingCutoffTime,
+    });
+  }
+
   private async findPublicRoomById(id: string): Promise<RoomRecord | undefined> {
     const roomRows = (await db
       .select()
@@ -392,6 +403,7 @@ export class PublicService {
       mapLat: record.mapLat,
       mapLng: record.mapLng,
       allowOnlineBookings: record.allowOnlineBookings === 1,
+      sameDayBookingCutoffTime: record.sameDayBookingCutoffTime,
       contactPhone: record.contactPhone,
       contactEmail: record.contactEmail,
       address: record.address,

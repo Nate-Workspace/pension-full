@@ -109,6 +109,7 @@ export const siteConfig = pgTable("site_config", {
   mapLat: text("mapLat").notNull().default(""),
   mapLng: text("mapLng").notNull().default(""),
   allowOnlineBookings: integer("allowOnlineBookings").notNull().default(1),
+  sameDayBookingCutoffTime: text("sameDayBookingCutoffTime").notNull().default("18:00"),
   contactPhone: text("contactPhone").notNull().default(""),
   contactEmail: text("contactEmail").notNull().default(""),
   address: text("address").notNull().default(""),
