@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { PublicRateLimitGuard } from './public-rate-limit.guard';
 import { PublicService } from './public.service';
 
 @Controller('public')
@@ -31,6 +32,7 @@ export class PublicController {
   }
 
   @Post('bookings/checkout')
+  @UseGuards(PublicRateLimitGuard)
   checkoutBooking(@Body() body: unknown) {
     return this.publicService.checkoutBooking(body);
   }

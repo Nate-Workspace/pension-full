@@ -32,9 +32,15 @@ import type {
   SiteContentResponse,
 } from '@repo/contracts';
 import {
+  publicBookingCheckoutResponseSchema,
   publicBookingCheckoutSchema,
   publicBookingLookupQuerySchema,
+  publicBookingLookupResponseSchema,
+  publicPensionResponseSchema,
   publicRoomAvailabilityQuerySchema,
+  publicRoomResponseSchema,
+  publicRoomAvailabilityResponseSchema,
+  siteContentResponseSchema,
 } from '@repo/contracts';
 import { SettingsService } from '../settings/settings.service';
 import {
@@ -68,7 +74,7 @@ export class PublicService {
     ]);
     const pensionInfo = await this.settingsService.getPensionInfo();
 
-    return {
+    return publicPensionResponseSchema.parse({
       pensionName: this.pickText(site.pensionName, pensionInfo.pensionName),
       tagline: site.tagline,
       contactPhone: this.pickText(site.contactPhone, pensionInfo.contactPhone),
@@ -77,7 +83,7 @@ export class PublicService {
       city: this.pickText(site.city, pensionInfo.city),
       defaultCheckInTime: operational.defaultCheckInTime,
       defaultCheckOutTime: operational.defaultCheckOutTime,
-    };
+    });
   }
 
   async getSiteContent(): Promise<SiteContentResponse> {
@@ -116,7 +122,7 @@ export class PublicService {
       ]),
     );
 
-    return {
+    return siteContentResponseSchema.parse({
       config: this.toSiteConfigResponse(configRecord),
       pages,
       gallery: galleryRows.map((row) => ({
@@ -146,7 +152,7 @@ export class PublicService {
         imageUrl: row.imageUrl,
         sortOrder: row.sortOrder,
       })),
-    };
+    });
   }
 
   async listRooms(): Promise<PublicRoomResponse[]> {
@@ -229,10 +235,10 @@ export class PublicService {
       .filter((range) => range.checkInDate < range.checkOutDate)
       .sort((left, right) => left.checkInDate.localeCompare(right.checkInDate));
 
-    return {
+    return publicRoomAvailabilityResponseSchema.parse({
       roomId: room.id,
       bookedRanges,
-    };
+    });
   }
 
   async requirePublicBookableRoom(id: string): Promise<RoomRecord> {
@@ -346,7 +352,7 @@ export class PublicService {
       };
     });
 
-    return result;
+    return publicBookingCheckoutResponseSchema.parse(result);
   }
 
   async lookupBooking(query: unknown): Promise<PublicBookingLookupResponse> {
@@ -392,7 +398,7 @@ export class PublicService {
       operationDay,
     );
 
-    return {
+    return publicBookingLookupResponseSchema.parse({
       code: booking.code,
       status,
       roomName: room.name,
@@ -406,7 +412,7 @@ export class PublicService {
       paymentStatus: this.derivePaymentStatus(totalAmount, paidAmount),
       defaultCheckInTime: operational.defaultCheckInTime,
       defaultCheckOutTime: operational.defaultCheckOutTime,
-    };
+    });
   }
 
   private async findPublicRoomById(id: string): Promise<RoomRecord | undefined> {
@@ -425,7 +431,7 @@ export class PublicService {
   ): PublicRoomResponse {
     const status = this.resolvePublicStatus(room.manualStatus, activeBooking);
 
-    return {
+    return publicRoomResponseSchema.parse({
       id: room.id,
       name: room.name,
       number: room.number,
@@ -434,7 +440,7 @@ export class PublicService {
       status,
       pricePerNight: room.pricePerNight,
       capacity: room.capacity,
-    };
+    });
   }
 
   private resolvePublicStatus(

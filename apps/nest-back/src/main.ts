@@ -34,6 +34,7 @@ async function bootstrap() {
   const allowedOrigins = parseAllowedOrigins();
 
   app.use(cookieParser());
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.enableCors({
     origin(origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {

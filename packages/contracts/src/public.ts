@@ -107,6 +107,19 @@ export const publicBookingLookupResponseSchema = z.object({
 	defaultCheckOutTime: z.string(),
 });
 
+export const publicSchemas = {
+	pensionResponse: publicPensionResponseSchema,
+	roomResponse: publicRoomResponseSchema,
+	roomsResponse: publicRoomsResponseSchema,
+	roomAvailabilityQuery: publicRoomAvailabilityQuerySchema,
+	roomAvailabilityResponse: publicRoomAvailabilityResponseSchema,
+	bookingCheckout: publicBookingCheckoutSchema,
+	bookingCheckoutResponse: publicBookingCheckoutResponseSchema,
+	bookingLookupQuery: publicBookingLookupQuerySchema,
+	bookingLookupResponse: publicBookingLookupResponseSchema,
+	siteContentResponse: siteContentResponseSchema,
+} as const;
+
 export type PublicPensionResponse = z.infer<typeof publicPensionResponseSchema>;
 export type PublicRoomResponse = z.infer<typeof publicRoomResponseSchema>;
 export type PublicRoomsResponse = z.infer<typeof publicRoomsResponseSchema>;

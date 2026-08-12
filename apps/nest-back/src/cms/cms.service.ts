@@ -7,9 +7,14 @@ import { asc, eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import {
   cmsAmenityInputSchema,
+  cmsAmenityUpdateSchema,
   cmsAttractionInputSchema,
+  cmsAttractionUpdateSchema,
+  cmsDeleteResponseSchema,
   cmsFaqInputSchema,
+  cmsFaqUpdateSchema,
   cmsGalleryItemInputSchema,
+  cmsGalleryItemUpdateSchema,
   cmsGlobalUpdateSchema,
   cmsPageContentUpdateSchema,
   cmsPageSlugSchema,
@@ -183,9 +188,9 @@ export class CmsService {
       );
     }
 
-    const input = cmsPageContentUpdateSchema.parse(body);
+    const parsedInput = cmsPageContentUpdateSchema.parse(body);
 
-    if (!input.sections) {
+    if (!parsedInput.sections) {
       throw new BadRequestException('sections are required.');
     }
 
@@ -193,9 +198,9 @@ export class CmsService {
       .delete(sitePageContent)
       .where(eq(sitePageContent.pageSlug, parsedSlug));
 
-    if (input.sections.length > 0) {
+    if (parsedInput.sections.length > 0) {
       await db.insert(sitePageContent).values(
-        input.sections.map((section) => ({
+        parsedInput.sections.map((section) => ({
           pageSlug: parsedSlug,
           sectionKey: section.sectionKey,
           content: section.content,
@@ -282,13 +287,24 @@ export class CmsService {
   }
 
   async updateGalleryItem(id: string, body: unknown) {
-    const input = cmsGalleryItemInputSchema.parse(body);
+    const input = cmsGalleryItemUpdateSchema.parse(body);
+    const existingRows = await db
+      .select()
+      .from(siteGalleryItems)
+      .where(eq(siteGalleryItems.id, id))
+      .limit(1);
+    const existing = existingRows[0];
+
+    if (!existing) {
+      throw new NotFoundException('Gallery item not found.');
+    }
+
     const updatedRows = await db
       .update(siteGalleryItems)
       .set({
-        imageUrl: input.imageUrl,
-        caption: input.caption ?? '',
-        sortOrder: input.sortOrder ?? 0,
+        imageUrl: input.imageUrl ?? existing.imageUrl,
+        caption: input.caption ?? existing.caption,
+        sortOrder: input.sortOrder ?? existing.sortOrder,
       })
       .where(eq(siteGalleryItems.id, id))
       .returning();
@@ -312,7 +328,7 @@ export class CmsService {
       throw new NotFoundException('Gallery item not found.');
     }
 
-    return { message: 'Gallery item deleted.' };
+    return cmsDeleteResponseSchema.parse({ message: 'Gallery item deleted.' });
   }
 
   listAmenities() {
@@ -337,14 +353,25 @@ export class CmsService {
   }
 
   async updateAmenity(id: string, body: unknown) {
-    const input = cmsAmenityInputSchema.parse(body);
+    const input = cmsAmenityUpdateSchema.parse(body);
+    const existingRows = await db
+      .select()
+      .from(siteAmenities)
+      .where(eq(siteAmenities.id, id))
+      .limit(1);
+    const existing = existingRows[0];
+
+    if (!existing) {
+      throw new NotFoundException('Amenity not found.');
+    }
+
     const updatedRows = await db
       .update(siteAmenities)
       .set({
-        name: input.name,
-        icon: input.icon ?? '',
-        description: input.description ?? '',
-        sortOrder: input.sortOrder ?? 0,
+        name: input.name ?? existing.name,
+        icon: input.icon ?? existing.icon,
+        description: input.description ?? existing.description,
+        sortOrder: input.sortOrder ?? existing.sortOrder,
       })
       .where(eq(siteAmenities.id, id))
       .returning();
@@ -368,7 +395,7 @@ export class CmsService {
       throw new NotFoundException('Amenity not found.');
     }
 
-    return { message: 'Amenity deleted.' };
+    return cmsDeleteResponseSchema.parse({ message: 'Amenity deleted.' });
   }
 
   listFaqs() {
@@ -392,13 +419,24 @@ export class CmsService {
   }
 
   async updateFaq(id: string, body: unknown) {
-    const input = cmsFaqInputSchema.parse(body);
+    const input = cmsFaqUpdateSchema.parse(body);
+    const existingRows = await db
+      .select()
+      .from(siteFaqs)
+      .where(eq(siteFaqs.id, id))
+      .limit(1);
+    const existing = existingRows[0];
+
+    if (!existing) {
+      throw new NotFoundException('FAQ not found.');
+    }
+
     const updatedRows = await db
       .update(siteFaqs)
       .set({
-        question: input.question,
-        answer: input.answer,
-        sortOrder: input.sortOrder ?? 0,
+        question: input.question ?? existing.question,
+        answer: input.answer ?? existing.answer,
+        sortOrder: input.sortOrder ?? existing.sortOrder,
       })
       .where(eq(siteFaqs.id, id))
       .returning();
@@ -422,7 +460,7 @@ export class CmsService {
       throw new NotFoundException('FAQ not found.');
     }
 
-    return { message: 'FAQ deleted.' };
+    return cmsDeleteResponseSchema.parse({ message: 'FAQ deleted.' });
   }
 
   listAttractions() {
@@ -451,15 +489,26 @@ export class CmsService {
   }
 
   async updateAttraction(id: string, body: unknown) {
-    const input = cmsAttractionInputSchema.parse(body);
+    const input = cmsAttractionUpdateSchema.parse(body);
+    const existingRows = await db
+      .select()
+      .from(siteAttractions)
+      .where(eq(siteAttractions.id, id))
+      .limit(1);
+    const existing = existingRows[0];
+
+    if (!existing) {
+      throw new NotFoundException('Attraction not found.');
+    }
+
     const updatedRows = await db
       .update(siteAttractions)
       .set({
-        name: input.name,
-        description: input.description ?? '',
-        distance: input.distance ?? '',
-        imageUrl: input.imageUrl ?? '',
-        sortOrder: input.sortOrder ?? 0,
+        name: input.name ?? existing.name,
+        description: input.description ?? existing.description,
+        distance: input.distance ?? existing.distance,
+        imageUrl: input.imageUrl ?? existing.imageUrl,
+        sortOrder: input.sortOrder ?? existing.sortOrder,
       })
       .where(eq(siteAttractions.id, id))
       .returning();
@@ -483,7 +532,7 @@ export class CmsService {
       throw new NotFoundException('Attraction not found.');
     }
 
-    return { message: 'Attraction deleted.' };
+    return cmsDeleteResponseSchema.parse({ message: 'Attraction deleted.' });
   }
 
   private parsePageSlug(slug: string): CmsPageSlug {

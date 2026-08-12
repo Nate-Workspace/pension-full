@@ -282,8 +282,8 @@ All items below are **explicitly scheduled in implementation phases**.
 - [x] Minimum advance booking rule (**#14**)
 - [x] `POST /public/bookings/checkout` — atomic booking + payment with overlap check in transaction
 - [x] `GET /public/bookings/lookup` — code + phone/email, 404 on mismatch (**#2**)
-- Rate limiting on public write endpoints
-- Zod contracts: `public.ts`, `site-content.ts`, `cms.ts`
+- [x] Rate limiting on public write endpoints
+- [x] Zod contracts: `public.ts`, `site-content.ts`, `cms.ts`
 
 ### Phase 3 — Public frontend + booking UX
 
@@ -364,7 +364,7 @@ All items below are **explicitly scheduled in implementation phases**.
 ## Implementation Checklist
 
 - [x] Phase 1 — Foundation (backend + routing)
-- [ ] Phase 2 — Booking engine + credibility rules
+- [x] Phase 2 — Booking engine + credibility rules
 - [ ] Phase 3 — Public frontend + booking UX
 - [ ] Phase 4 — Dedicated CMS
 - [ ] Phase 5 — Management integration + polish + testing
