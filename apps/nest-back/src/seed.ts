@@ -147,6 +147,17 @@ const seedRooms = [
     capacity: 2,
     assignedTo: null,
   },
+  {
+    id: 'room-401',
+    name: 'Room 401',
+    number: '401',
+    floor: 4,
+    type: 'single' as const,
+    manualStatus: 'maintenance' as const,
+    pricePerNight: 2200,
+    capacity: 1,
+    assignedTo: 'Maintenance crew',
+  },
 ] as const;
 
 const seedBookings = [

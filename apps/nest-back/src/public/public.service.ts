@@ -26,6 +26,11 @@ import {
   computeBookingStatus,
   type BookingLifecycleStatus,
 } from '../bookings/booking-status';
+import {
+  assertPublicBookableRoom,
+  assertPublicVisibleRoom,
+  isPublicBookableRoom,
+} from './public-booking-rules';
 
 type RoomRecord = typeof roomsTable.$inferSelect;
 type BookingRecord = typeof bookingsTable.$inferSelect;
@@ -137,7 +142,7 @@ export class PublicService {
     );
 
     return roomRows
-      .filter((room) => room.manualStatus !== 'maintenance')
+      .filter((room) => isPublicBookableRoom(room))
       .map((room) =>
         this.toPublicRoom(room, activeBookingByRoomId.get(room.id) ?? null),
       )
@@ -155,16 +160,8 @@ export class PublicService {
   }
 
   async getRoomById(id: string): Promise<PublicRoomResponse> {
-    const roomRows = (await db
-      .select()
-      .from(roomsTable)
-      .where(eq(roomsTable.id, id))
-      .limit(1)) as RoomRecord[];
-    const room = roomRows[0];
-
-    if (!room || room.manualStatus === 'maintenance') {
-      throw new NotFoundException('Room not found');
-    }
+    const room = await this.findPublicRoomById(id);
+    assertPublicVisibleRoom(room);
 
     const operationDay = this.getCurrentOperationDay();
     const bookingRows = (await db
@@ -186,16 +183,8 @@ export class PublicService {
       query,
     );
 
-    const roomRows = (await db
-      .select()
-      .from(roomsTable)
-      .where(eq(roomsTable.id, id))
-      .limit(1)) as RoomRecord[];
-    const room = roomRows[0];
-
-    if (!room || room.manualStatus === 'maintenance') {
-      throw new NotFoundException('Room not found');
-    }
+    const room = await this.findPublicRoomById(id);
+    assertPublicVisibleRoom(room);
 
     const operationDay = this.getCurrentOperationDay();
     const bookingRows = (await db
@@ -227,6 +216,22 @@ export class PublicService {
       roomId: room.id,
       bookedRanges,
     };
+  }
+
+  async requirePublicBookableRoom(id: string): Promise<RoomRecord> {
+    const room = await this.findPublicRoomById(id);
+    assertPublicBookableRoom(room);
+    return room;
+  }
+
+  private async findPublicRoomById(id: string): Promise<RoomRecord | undefined> {
+    const roomRows = (await db
+      .select()
+      .from(roomsTable)
+      .where(eq(roomsTable.id, id))
+      .limit(1)) as RoomRecord[];
+
+    return roomRows[0];
   }
 
   private toPublicRoom(
