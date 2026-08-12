@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { AUTH_QUERY_KEY, useAuth } from "@/components/providers/auth-provider";
@@ -43,10 +43,20 @@ async function getErrorMessage(
   return payload.message;
 }
 
+function resolvePostLoginPath(nextParam: string | null): string {
+  if (!nextParam || !nextParam.startsWith("/") || nextParam.startsWith("//")) {
+    return "/dashboard";
+  }
+
+  return nextParam;
+}
+
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { isAuthenticated, isLoading } = useAuth();
+  const nextPath = resolvePostLoginPath(searchParams.get("next"));
 
   const [form, setForm] = useState<LoginPayload>({
     email: "",
@@ -57,9 +67,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace("/dashboard");
+      router.replace(nextPath);
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, nextPath, router]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -93,7 +103,7 @@ export default function LoginPage() {
 
         const payload = (await response.json()) as LoginResponse;
         queryClient.setQueryData(AUTH_QUERY_KEY, payload.user);
-        router.replace("/dashboard");
+        router.replace(nextPath);
       } catch (error) {
         setErrorMessage(
           error instanceof Error ? error.message : "Unable to log in.",
