@@ -3,6 +3,7 @@ import {
   boolean,
   integer,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -14,7 +15,7 @@ export const roomManualStatusEnum = ["available", "cleaning", "maintenance"] as 
 export const roomStatusEnum = ["available", "occupied", "cleaning", "maintenance"] as const;
 export const bookingSourceEnum = ["walk-in", "phone", "website", "agent"] as const;
 export const bookingStatusEnum = ["active", "upcoming", "checked_out", "canceled"] as const;
-export const paymentMethodEnum = ["cash", "mobile_money"] as const;
+export const paymentMethodEnum = ["cash", "mobile_money", "online"] as const;
 export const paymentStatusEnum = ["paid", "partial", "unpaid"] as const;
 
 export const users = pgTable("users", {
@@ -93,6 +94,80 @@ export const payments = pgTable(
   },
 );
 
+export const siteConfig = pgTable("site_config", {
+  id: text("id").primaryKey(),
+  pensionName: text("pensionName").notNull().default(""),
+  tagline: text("tagline").notNull().default(""),
+  heroImageUrl: text("heroImageUrl").notNull().default(""),
+  heroHeadline: text("heroHeadline").notNull().default(""),
+  heroSubtext: text("heroSubtext").notNull().default(""),
+  aboutDescription: text("aboutDescription").notNull().default(""),
+  cancellationPolicy: text("cancellationPolicy").notNull().default(""),
+  termsText: text("termsText").notNull().default(""),
+  privacyText: text("privacyText").notNull().default(""),
+  mapEmbedUrl: text("mapEmbedUrl").notNull().default(""),
+  mapLat: text("mapLat").notNull().default(""),
+  mapLng: text("mapLng").notNull().default(""),
+  allowOnlineBookings: integer("allowOnlineBookings").notNull().default(1),
+  contactPhone: text("contactPhone").notNull().default(""),
+  contactEmail: text("contactEmail").notNull().default(""),
+  address: text("address").notNull().default(""),
+  city: text("city").notNull().default(""),
+  createdAt: timestamp("createdAt", { mode: "date", withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updatedAt", { mode: "date", withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const siteGalleryItems = pgTable("site_gallery_items", {
+  id: text("id").primaryKey(),
+  imageUrl: text("imageUrl").notNull(),
+  caption: text("caption").notNull().default(""),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt", { mode: "date", withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const siteAmenities = pgTable("site_amenities", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  icon: text("icon").notNull().default(""),
+  description: text("description").notNull().default(""),
+  sortOrder: integer("sortOrder").notNull().default(0),
+});
+
+export const siteFaqs = pgTable("site_faqs", {
+  id: text("id").primaryKey(),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  sortOrder: integer("sortOrder").notNull().default(0),
+});
+
+export const siteAttractions = pgTable("site_attractions", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  distance: text("distance").notNull().default(""),
+  imageUrl: text("imageUrl").notNull().default(""),
+  sortOrder: integer("sortOrder").notNull().default(0),
+});
+
+export const sitePageContent = pgTable(
+  "site_page_content",
+  {
+    pageSlug: text("pageSlug").notNull(),
+    sectionKey: text("sectionKey").notNull(),
+    content: text("content").notNull().default(""),
+    sortOrder: integer("sortOrder").notNull().default(0),
+  },
+  (table) => ({
+    pageSectionPk: primaryKey({ columns: [table.pageSlug, table.sectionKey] }),
+  }),
+);
+
 export const settings = pgTable("settings", {
   id: text("id").primaryKey(),
   pensionName: text("pensionName").notNull(),
@@ -124,6 +199,12 @@ export const schema = {
   bookings,
   payments,
   settings,
+  siteConfig,
+  siteGalleryItems,
+  siteAmenities,
+  siteFaqs,
+  siteAttractions,
+  sitePageContent,
 } as const;
 
 export type User = typeof users.$inferSelect;
@@ -136,3 +217,15 @@ export type Payment = typeof payments.$inferSelect;
 export type NewPayment = typeof payments.$inferInsert;
 export type Settings = typeof settings.$inferSelect;
 export type NewSettings = typeof settings.$inferInsert;
+export type SiteConfig = typeof siteConfig.$inferSelect;
+export type NewSiteConfig = typeof siteConfig.$inferInsert;
+export type SiteGalleryItem = typeof siteGalleryItems.$inferSelect;
+export type NewSiteGalleryItem = typeof siteGalleryItems.$inferInsert;
+export type SiteAmenity = typeof siteAmenities.$inferSelect;
+export type NewSiteAmenity = typeof siteAmenities.$inferInsert;
+export type SiteFaq = typeof siteFaqs.$inferSelect;
+export type NewSiteFaq = typeof siteFaqs.$inferInsert;
+export type SiteAttraction = typeof siteAttractions.$inferSelect;
+export type NewSiteAttraction = typeof siteAttractions.$inferInsert;
+export type SitePageContent = typeof sitePageContent.$inferSelect;
+export type NewSitePageContent = typeof sitePageContent.$inferInsert;

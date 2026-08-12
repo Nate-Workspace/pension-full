@@ -2,7 +2,6 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 const LOGIN_PATH = "/auth/login";
-const AUTH_COOKIE_NAME = "access_token";
 
 export function middleware(request: NextRequest) {
   if (process.env.NODE_ENV === "production") {
@@ -10,16 +9,13 @@ export function middleware(request: NextRequest) {
   }
 
   const { pathname } = request.nextUrl;
-  const hasAuthCookie = Boolean(request.cookies.get(AUTH_COOKIE_NAME)?.value);
 
   if (pathname === LOGIN_PATH) {
     return NextResponse.next();
   }
 
-  if (!hasAuthCookie) {
-    return NextResponse.redirect(new URL(LOGIN_PATH, request.url));
-  }
-
+  // The auth cookie is set on the API origin (e.g. localhost:5000), not the web
+  // app origin (e.g. localhost:3001). Client-side auth via /auth/me handles sessions.
   return NextResponse.next();
 }
 

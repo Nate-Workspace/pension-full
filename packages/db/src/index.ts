@@ -1,16 +1,41 @@
 export { db, getDatabaseConfig, getDb, getResolvedDatabaseConfig } from "./db";
 export type { DatabaseConfig, DbProvider } from "./db";
 
-export { bookings, payments, rooms, schema, settings, users } from "./schema";
+export {
+	bookings,
+	payments,
+	rooms,
+	schema,
+	settings,
+	siteAmenities,
+	siteAttractions,
+	siteConfig,
+	siteFaqs,
+	siteGalleryItems,
+	sitePageContent,
+	users,
+} from "./schema";
 export type {
 	Booking,
 	NewBooking,
 	NewPayment,
 	NewRoom,
 	NewSettings,
+	NewSiteAmenity,
+	NewSiteAttraction,
+	NewSiteConfig,
+	NewSiteFaq,
+	NewSiteGalleryItem,
+	NewSitePageContent,
 	NewUser,
 	Payment,
 	Room,
 	Settings,
+	SiteAmenity,
+	SiteAttraction,
+	SiteConfig,
+	SiteFaq,
+	SiteGalleryItem,
+	SitePageContent,
 	User,
 } from "./schema";

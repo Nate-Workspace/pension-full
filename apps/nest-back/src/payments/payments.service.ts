@@ -10,7 +10,7 @@ type BookingRecord = typeof bookingsTable.$inferSelect;
 type PaymentRecord = typeof paymentsTable.$inferSelect;
 type RoomRecord = typeof roomsTable.$inferSelect;
 
-type PaymentMethod = 'cash' | 'mobile_money';
+type PaymentMethod = 'cash' | 'mobile_money' | 'online';
 type PaymentStatus = 'paid' | 'partial' | 'unpaid';
 
 type ListPaymentsQuery = {
@@ -268,11 +268,11 @@ export class PaymentsService {
       return undefined;
     }
 
-    if (value === 'cash' || value === 'mobile_money') {
+    if (value === 'cash' || value === 'mobile_money' || value === 'online') {
       return value;
     }
 
-    throw new BadRequestException('method must be one of: all, cash, mobile_money.');
+    throw new BadRequestException('method must be one of: all, cash, mobile_money, online.');
   }
 
   private optionalTrimmedString(value: unknown): string | undefined {

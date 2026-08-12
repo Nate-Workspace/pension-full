@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { paginationMetaSchema, paginationQuerySchema } from "./pagination";
 
-export const paymentMethodSchema = z.enum(["cash", "mobile_money"]);
+export const paymentMethodSchema = z.enum(["cash", "mobile_money", "online"]);
 
 export const paymentStatusSchema = z.enum(["paid", "partial", "unpaid"]);
 

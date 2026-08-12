@@ -18,7 +18,9 @@
     "build": "tsc",
     "dev": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc -w",
     "lint": "eslint --max-warnings 0",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",

@@ -9,6 +9,7 @@ const loadEnvConfig = loadEnv as (options: {
 }) => void;
 
 loadEnvConfig({ path: '../../.env' });
+loadEnvConfig({ path: '../../.env.local', override: true });
 loadEnvConfig({ path: './.env', override: true });
 
 const seedUsers = [

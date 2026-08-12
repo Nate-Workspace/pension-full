@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 loadEnv({ path: '../../.env' });
+loadEnv({ path: '../../.env.local', override: true });
 loadEnv({ path: './.env', override: true });
 
 function parseAllowedOrigins(): string[] {
