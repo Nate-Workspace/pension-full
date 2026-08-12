@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { PublicService } from './public.service';
 
 @Controller('public')
@@ -18,6 +18,11 @@ export class PublicController {
   @Get('rooms')
   listRooms() {
     return this.publicService.listRooms();
+  }
+
+  @Get('rooms/:id/availability')
+  getRoomAvailability(@Param('id') id: string, @Query() query: unknown) {
+    return this.publicService.getRoomAvailability(id, query);
   }
 
   @Get('rooms/:id')

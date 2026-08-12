@@ -11,7 +11,10 @@ export {
 	cmsPagesResponseSchema,
 } from "./cms";
 export {
+	publicBookedRangeSchema,
 	publicPensionResponseSchema,
+	publicRoomAvailabilityQuerySchema,
+	publicRoomAvailabilityResponseSchema,
 	publicRoomResponseSchema,
 	publicRoomStatusSchema,
 	publicRoomsResponseSchema,
@@ -85,7 +88,10 @@ export type {
 	CmsPagesResponse,
 } from "./cms";
 export type {
+	PublicBookedRange,
 	PublicPensionResponse,
+	PublicRoomAvailabilityQueryInput,
+	PublicRoomAvailabilityResponse,
 	PublicRoomResponse,
 	PublicRoomsResponse,
 	SiteConfigResponse,

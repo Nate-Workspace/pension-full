@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { asc, eq } from 'drizzle-orm';
 import {
   db,
@@ -12,11 +12,15 @@ import {
   sitePageContent,
 } from '@repo/db';
 import type {
+  PublicBookedRange,
   PublicPensionResponse,
+  PublicRoomAvailabilityQueryInput,
+  PublicRoomAvailabilityResponse,
   PublicRoomResponse,
   SiteConfigResponse,
   SiteContentResponse,
 } from '@repo/contracts';
+import { publicRoomAvailabilityQuerySchema } from '@repo/contracts';
 import { SettingsService } from '../settings/settings.service';
 import {
   computeBookingStatus,
@@ -173,6 +177,58 @@ export class PublicService {
     return this.toPublicRoom(room, activeBooking);
   }
 
+  async getRoomAvailability(
+    id: string,
+    query: unknown,
+  ): Promise<PublicRoomAvailabilityResponse> {
+    const parsedQuery = this.parseSchema<PublicRoomAvailabilityQueryInput>(
+      publicRoomAvailabilityQuerySchema,
+      query,
+    );
+
+    const roomRows = (await db
+      .select()
+      .from(roomsTable)
+      .where(eq(roomsTable.id, id))
+      .limit(1)) as RoomRecord[];
+    const room = roomRows[0];
+
+    if (!room || room.manualStatus === 'maintenance') {
+      throw new NotFoundException('Room not found');
+    }
+
+    const operationDay = this.getCurrentOperationDay();
+    const bookingRows = (await db
+      .select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.roomId, id))) as BookingRecord[];
+
+    const bookedRanges = bookingRows
+      .filter((booking) =>
+        this.isBlockingBookingForAvailability(
+          booking,
+          operationDay,
+          parsedQuery.from,
+          parsedQuery.to,
+        ),
+      )
+      .map((booking) =>
+        this.toPublicBookedRange(
+          booking,
+          operationDay,
+          parsedQuery.from,
+          parsedQuery.to,
+        ),
+      )
+      .filter((range) => range.checkInDate < range.checkOutDate)
+      .sort((left, right) => left.checkInDate.localeCompare(right.checkInDate));
+
+    return {
+      roomId: room.id,
+      bookedRanges,
+    };
+  }
+
   private toPublicRoom(
     room: RoomRecord,
     activeBooking: BookingRecord | null,
@@ -250,6 +306,65 @@ export class PublicService {
 
   private getCurrentOperationDay(): string {
     return new Date().toISOString().slice(0, 10);
+  }
+
+  private isBlockingBookingForAvailability(
+    booking: BookingRecord,
+    operationDay: string,
+    from: string,
+    to: string,
+  ): boolean {
+    if (booking.isCanceled || booking.checkedOutAt) {
+      return false;
+    }
+
+    if (booking.checkOutDate <= operationDay) {
+      return false;
+    }
+
+    return booking.checkInDate < to && booking.checkOutDate > from;
+  }
+
+  private toPublicBookedRange(
+    booking: BookingRecord,
+    operationDay: string,
+    from: string,
+    to: string,
+  ): PublicBookedRange {
+    const checkInDate =
+      booking.checkInDate > from ? booking.checkInDate : from;
+    const futureCheckIn =
+      checkInDate > operationDay ? checkInDate : operationDay;
+    const checkOutDate =
+      booking.checkOutDate < to ? booking.checkOutDate : to;
+
+    return {
+      checkInDate: futureCheckIn,
+      checkOutDate,
+    };
+  }
+
+  private parseSchema<T>(
+    schema: { safeParse(value: unknown): unknown },
+    value: unknown,
+  ): T {
+    const result = schema.safeParse(value) as {
+      success: boolean;
+      data?: T;
+      error?:
+        | {
+            issues: Array<{ message: string }>;
+          }
+        | undefined;
+    };
+
+    if (!result.success) {
+      throw new BadRequestException(
+        result.error?.issues[0]?.message ?? 'Invalid request payload.',
+      );
+    }
+
+    return result.data as T;
   }
 
   private pickText(primary: string, fallback: string): string {
