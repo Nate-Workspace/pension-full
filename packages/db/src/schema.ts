@@ -59,6 +59,7 @@ export const bookings = pgTable(
       .references(() => rooms.id, { onDelete: "cascade" }),
     guestName: text("guestName").notNull(),
     guestPhone: text("guestPhone"),
+    guestEmail: text("guestEmail"),
     guestIdNumber: text("guestIdNumber"),
     handledBy: text("handledBy"),
     isCanceled: boolean("isCanceled").notNull().default(false),

@@ -34,4 +34,9 @@ export class PublicController {
   checkoutBooking(@Body() body: unknown) {
     return this.publicService.checkoutBooking(body);
   }
+
+  @Get('bookings/lookup')
+  lookupBooking(@Query() query: unknown) {
+    return this.publicService.lookupBooking(query);
+  }
 }

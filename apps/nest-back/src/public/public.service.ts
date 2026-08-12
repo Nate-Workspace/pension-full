@@ -22,6 +22,8 @@ import type {
   PublicBookedRange,
   PublicBookingCheckoutInput,
   PublicBookingCheckoutResponse,
+  PublicBookingLookupQueryInput,
+  PublicBookingLookupResponse,
   PublicPensionResponse,
   PublicRoomAvailabilityQueryInput,
   PublicRoomAvailabilityResponse,
@@ -31,6 +33,7 @@ import type {
 } from '@repo/contracts';
 import {
   publicBookingCheckoutSchema,
+  publicBookingLookupQuerySchema,
   publicRoomAvailabilityQuerySchema,
 } from '@repo/contracts';
 import { SettingsService } from '../settings/settings.service';
@@ -44,6 +47,7 @@ import {
   assertMinimumAdvanceBooking,
   isPublicBookableRoom,
 } from './public-booking-rules';
+import { contactMatchesBooking } from './public-contact';
 
 type RoomRecord = typeof roomsTable.$inferSelect;
 type BookingRecord = typeof bookingsTable.$inferSelect;
@@ -286,7 +290,8 @@ export class PublicService {
           code,
           roomId: room.id,
           guestName: input.guestName,
-          guestPhone: input.guestPhone,
+          guestPhone: input.guestPhone ?? null,
+          guestEmail: input.guestEmail ?? null,
           guestIdNumber: null,
           handledBy: null,
           isCanceled: false,
@@ -342,6 +347,66 @@ export class PublicService {
     });
 
     return result;
+  }
+
+  async lookupBooking(query: unknown): Promise<PublicBookingLookupResponse> {
+    const input = this.parseSchema<PublicBookingLookupQueryInput>(
+      publicBookingLookupQuerySchema,
+      query,
+    );
+
+    const bookingRows = (await db
+      .select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.code, input.code))
+      .limit(1)) as BookingRecord[];
+    const booking = bookingRows[0];
+
+    if (!booking || !contactMatchesBooking(input.contact, booking)) {
+      throw new NotFoundException('Booking not found.');
+    }
+
+    const roomRows = (await db
+      .select()
+      .from(roomsTable)
+      .where(eq(roomsTable.id, booking.roomId))
+      .limit(1)) as RoomRecord[];
+    const room = roomRows[0];
+
+    if (!room) {
+      throw new NotFoundException('Booking not found.');
+    }
+
+    const operational = await this.settingsService.getOperationalPreferences();
+    const operationDay = this.getCurrentOperationDay();
+    const nights = this.calculateNights(booking.checkInDate, booking.checkOutDate);
+    const totalAmount = room.pricePerNight * nights;
+    const paidAmount = Math.min(booking.paidAmount ?? 0, totalAmount);
+    const status = computeBookingStatus(
+      {
+        isCanceled: booking.isCanceled,
+        checkInDate: booking.checkInDate,
+        checkOutDate: booking.checkOutDate,
+        checkedOutAt: booking.checkedOutAt,
+      },
+      operationDay,
+    );
+
+    return {
+      code: booking.code,
+      status,
+      roomName: room.name,
+      roomNumber: room.number,
+      guestName: booking.guestName,
+      checkInDate: booking.checkInDate,
+      checkOutDate: booking.checkOutDate,
+      nights,
+      totalAmount,
+      paidAmount,
+      paymentStatus: this.derivePaymentStatus(totalAmount, paidAmount),
+      defaultCheckInTime: operational.defaultCheckInTime,
+      defaultCheckOutTime: operational.defaultCheckOutTime,
+    };
   }
 
   private async findPublicRoomById(id: string): Promise<RoomRecord | undefined> {
@@ -538,6 +603,21 @@ export class PublicService {
 
   private createOnlinePaymentReference(code: string): string {
     return `ONLINE-${code}`;
+  }
+
+  private derivePaymentStatus(
+    totalAmount: number,
+    paidAmount: number,
+  ): PublicBookingLookupResponse['paymentStatus'] {
+    if (paidAmount <= 0) {
+      return 'unpaid';
+    }
+
+    if (paidAmount >= totalAmount) {
+      return 'paid';
+    }
+
+    return 'partial';
   }
 
   private isBlockingBookingForAvailability(

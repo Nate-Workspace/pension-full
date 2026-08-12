@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { bookingPaymentStatusSchema, bookingStatusSchema } from "./bookings";
 import { roomTypeSchema } from "./rooms";
 import { siteConfigResponseSchema, siteContentResponseSchema } from "./site-content";
 
@@ -54,13 +55,19 @@ export const publicRoomAvailabilityResponseSchema = z.object({
 	bookedRanges: z.array(publicBookedRangeSchema),
 });
 
-export const publicBookingCheckoutSchema = z.object({
-	roomId: z.string().trim().min(1),
-	guestName: z.string().trim().min(1),
-	guestPhone: z.string().trim().min(1),
-	checkInDate: publicDateSchema,
-	checkOutDate: publicDateSchema,
-});
+export const publicBookingCheckoutSchema = z
+	.object({
+		roomId: z.string().trim().min(1),
+		guestName: z.string().trim().min(1),
+		guestPhone: z.string().trim().min(1).optional(),
+		guestEmail: z.string().trim().email().optional(),
+		checkInDate: publicDateSchema,
+		checkOutDate: publicDateSchema,
+	})
+	.refine((value) => Boolean(value.guestPhone || value.guestEmail), {
+		message: "Either guestPhone or guestEmail is required.",
+		path: ["guestPhone"],
+	});
 
 export const publicBookingCheckoutResponseSchema = z.object({
 	code: z.string(),
@@ -75,6 +82,27 @@ export const publicBookingCheckoutResponseSchema = z.object({
 	totalAmount: z.number().int().nonnegative(),
 	paidAmount: z.number().int().nonnegative(),
 	paymentStatus: z.literal("paid"),
+	defaultCheckInTime: z.string(),
+	defaultCheckOutTime: z.string(),
+});
+
+export const publicBookingLookupQuerySchema = z.object({
+	code: z.string().trim().min(1),
+	contact: z.string().trim().min(1),
+});
+
+export const publicBookingLookupResponseSchema = z.object({
+	code: z.string(),
+	status: bookingStatusSchema,
+	roomName: z.string(),
+	roomNumber: z.string(),
+	guestName: z.string(),
+	checkInDate: publicDateSchema,
+	checkOutDate: publicDateSchema,
+	nights: z.number().int().positive(),
+	totalAmount: z.number().int().nonnegative(),
+	paidAmount: z.number().int().nonnegative(),
+	paymentStatus: bookingPaymentStatusSchema,
 	defaultCheckInTime: z.string(),
 	defaultCheckOutTime: z.string(),
 });
@@ -94,6 +122,12 @@ export type PublicBookingCheckoutInput = z.infer<
 >;
 export type PublicBookingCheckoutResponse = z.infer<
 	typeof publicBookingCheckoutResponseSchema
+>;
+export type PublicBookingLookupQueryInput = z.infer<
+	typeof publicBookingLookupQuerySchema
+>;
+export type PublicBookingLookupResponse = z.infer<
+	typeof publicBookingLookupResponseSchema
 >;
 export type { SiteConfigResponse, SiteContentResponse } from "./site-content";
 export { siteConfigResponseSchema, siteContentResponseSchema };
