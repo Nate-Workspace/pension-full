@@ -270,7 +270,7 @@ All items below are **explicitly scheduled in implementation phases**.
 ### Phase 1 — Foundation (backend + routing)
 
 - [x] DB migration: `site_config`, page content tables, entity tables + `online` payment method
-- `PublicModule` with read endpoints; `CmsModule` scaffold (admin-only)
+- [x] `PublicModule` with read endpoints; `CmsModule` scaffold (admin-only)
 - Middleware fix: public route allowlist + protect `/cms`
 - Move `/` to public home; dashboard stays at `/dashboard`
 - Add **Website (CMS)** nav item (admin only)

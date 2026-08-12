@@ -1,3 +1,30 @@
+export {
+	cmsAmenityInputSchema,
+	cmsAttractionInputSchema,
+	cmsFaqInputSchema,
+	cmsGalleryItemInputSchema,
+	cmsGlobalUpdateSchema,
+	cmsPageContentResponseSchema,
+	cmsPageContentUpdateSchema,
+	cmsPageSlugSchema,
+	cmsPageSummarySchema,
+	cmsPagesResponseSchema,
+} from "./cms";
+export {
+	publicPensionResponseSchema,
+	publicRoomResponseSchema,
+	publicRoomStatusSchema,
+	publicRoomsResponseSchema,
+} from "./public";
+export {
+	siteAmenitySchema,
+	siteAttractionSchema,
+	siteConfigResponseSchema,
+	siteContentResponseSchema,
+	siteFaqSchema,
+	siteGalleryItemSchema,
+	sitePageSectionSchema,
+} from "./site-content";
 export { authSchemas, loginSchema, registerSchema } from "./auth";
 export {
 	paginationMetaSchema,
@@ -45,6 +72,32 @@ export {
 	updateRoomSchema,
 } from "./rooms";
 
+export type {
+	CmsAmenityInput,
+	CmsAttractionInput,
+	CmsFaqInput,
+	CmsGalleryItemInput,
+	CmsGlobalUpdateInput,
+	CmsPageContentResponse,
+	CmsPageContentUpdateInput,
+	CmsPageSlug,
+	CmsPageSummary,
+	CmsPagesResponse,
+} from "./cms";
+export type {
+	PublicPensionResponse,
+	PublicRoomResponse,
+	PublicRoomsResponse,
+	SiteConfigResponse,
+	SiteContentResponse,
+} from "./public";
+export type {
+	SiteAmenity,
+	SiteAttraction,
+	SiteFaq,
+	SiteGalleryItem,
+	SitePageSection,
+} from "./site-content";
 export type { LoginInput, RegisterInput } from "./auth";
 export type { PaginationMeta, PaginationQueryInput, SortOrder } from "./pagination";
 export type { DashboardOccupancyPoint, DashboardRevenuePoint, DashboardSummary, DashboardTrends } from "./dashboard";
