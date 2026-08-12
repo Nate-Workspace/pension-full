@@ -1,8 +1,15 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { asc, eq } from 'drizzle-orm';
 import {
   db,
   bookings as bookingsTable,
+  payments as paymentsTable,
   rooms as roomsTable,
   siteAmenities,
   siteAttractions,
@@ -13,6 +20,8 @@ import {
 } from '@repo/db';
 import type {
   PublicBookedRange,
+  PublicBookingCheckoutInput,
+  PublicBookingCheckoutResponse,
   PublicPensionResponse,
   PublicRoomAvailabilityQueryInput,
   PublicRoomAvailabilityResponse,
@@ -20,7 +29,10 @@ import type {
   SiteConfigResponse,
   SiteContentResponse,
 } from '@repo/contracts';
-import { publicRoomAvailabilityQuerySchema } from '@repo/contracts';
+import {
+  publicBookingCheckoutSchema,
+  publicRoomAvailabilityQuerySchema,
+} from '@repo/contracts';
 import { SettingsService } from '../settings/settings.service';
 import {
   computeBookingStatus,
@@ -235,6 +247,103 @@ export class PublicService {
     });
   }
 
+  async checkoutBooking(body: unknown): Promise<PublicBookingCheckoutResponse> {
+    const input = this.parseSchema<PublicBookingCheckoutInput>(
+      publicBookingCheckoutSchema,
+      body,
+    );
+
+    await this.assertOnlineBookingsAllowed();
+    await this.assertPublicBookingDates(input.checkInDate, input.checkOutDate);
+
+    const operational = await this.settingsService.getOperationalPreferences();
+
+    const result = await db.transaction(async (tx) => {
+      const roomRows = (await tx
+        .select()
+        .from(roomsTable)
+        .where(eq(roomsTable.id, input.roomId))
+        .for('update')
+        .limit(1)) as RoomRecord[];
+      const room = roomRows[0];
+
+      assertPublicBookableRoom(room);
+      await this.ensureNoOverlapInTransaction(tx, {
+        roomId: input.roomId,
+        checkInDate: input.checkInDate,
+        checkOutDate: input.checkOutDate,
+      });
+
+      const nights = this.calculateNights(input.checkInDate, input.checkOutDate);
+      const totalAmount = room.pricePerNight * nights;
+      const bookingId = this.createBookingId();
+      const code = await this.generateBookingCode(tx);
+
+      const insertedBookings = (await tx
+        .insert(bookingsTable)
+        .values({
+          id: bookingId,
+          code,
+          roomId: room.id,
+          guestName: input.guestName,
+          guestPhone: input.guestPhone,
+          guestIdNumber: null,
+          handledBy: null,
+          isCanceled: false,
+          checkedOutAt: null,
+          checkInDate: input.checkInDate,
+          checkOutDate: input.checkOutDate,
+          paidAmount: totalAmount,
+          source: 'website',
+        })
+        .returning()) as BookingRecord[];
+
+      const booking = insertedBookings[0];
+
+      if (!booking) {
+        throw new BadRequestException('Failed to create booking.');
+      }
+
+      const paymentReference = this.createOnlinePaymentReference(code);
+      const insertedPayments = await tx
+        .insert(paymentsTable)
+        .values({
+          id: this.createPaymentId(),
+          bookingId: booking.id,
+          roomId: room.id,
+          amount: totalAmount,
+          method: 'online',
+          status: 'paid',
+          paidAt: new Date(),
+          reference: paymentReference,
+        })
+        .returning();
+
+      if (!insertedPayments[0]) {
+        throw new BadRequestException('Failed to record payment.');
+      }
+
+      return {
+        code: booking.code,
+        roomId: room.id,
+        roomName: room.name,
+        roomNumber: room.number,
+        guestName: booking.guestName,
+        checkInDate: booking.checkInDate,
+        checkOutDate: booking.checkOutDate,
+        nights,
+        pricePerNight: room.pricePerNight,
+        totalAmount,
+        paidAmount: totalAmount,
+        paymentStatus: 'paid' as const,
+        defaultCheckInTime: operational.defaultCheckInTime,
+        defaultCheckOutTime: operational.defaultCheckOutTime,
+      };
+    });
+
+    return result;
+  }
+
   private async findPublicRoomById(id: string): Promise<RoomRecord | undefined> {
     const roomRows = (await db
       .select()
@@ -322,6 +431,113 @@ export class PublicService {
 
   private getCurrentOperationDay(): string {
     return new Date().toISOString().slice(0, 10);
+  }
+
+  private async assertOnlineBookingsAllowed(): Promise<void> {
+    const siteConfigRecord = await this.getOrCreateSiteConfig();
+
+    if (siteConfigRecord.allowOnlineBookings !== 1) {
+      throw new BadRequestException('Online bookings are currently unavailable.');
+    }
+  }
+
+  private async ensureNoOverlapInTransaction(
+    tx: Pick<typeof db, 'select'>,
+    input: {
+      roomId: string;
+      checkInDate: string;
+      checkOutDate: string;
+    },
+  ): Promise<void> {
+    const roomBookings = (await tx
+      .select()
+      .from(bookingsTable)
+      .where(eq(bookingsTable.roomId, input.roomId))) as BookingRecord[];
+    const operationDay = this.getCurrentOperationDay();
+
+    const hasConflict = roomBookings.some((booking) => {
+      if (booking.isCanceled || booking.checkedOutAt) {
+        return false;
+      }
+
+      const status = computeBookingStatus(
+        {
+          isCanceled: booking.isCanceled,
+          checkInDate: booking.checkInDate,
+          checkOutDate: booking.checkOutDate,
+          checkedOutAt: booking.checkedOutAt,
+        },
+        operationDay,
+      );
+
+      if (status === 'canceled' || status === 'checked_out') {
+        return false;
+      }
+
+      return (
+        input.checkInDate < booking.checkOutDate &&
+        input.checkOutDate > booking.checkInDate
+      );
+    });
+
+    if (hasConflict) {
+      throw new ConflictException(
+        'This room is not available for the selected dates.',
+      );
+    }
+  }
+
+  private calculateNights(checkInDate: string, checkOutDate: string): number {
+    const start = this.parseIsoDate(checkInDate).getTime();
+    const end = this.parseIsoDate(checkOutDate).getTime();
+    const dayMs = 1000 * 60 * 60 * 24;
+
+    return Math.round((end - start) / dayMs);
+  }
+
+  private parseIsoDate(value: string): Date {
+    return new Date(`${value}T00:00:00Z`);
+  }
+
+  private async generateBookingCode(
+    tx: Pick<typeof db, 'select'>,
+  ): Promise<string> {
+    const bookingRows = (await tx
+      .select({ id: bookingsTable.id })
+      .from(bookingsTable)) as Array<{ id: string }>;
+
+    let candidateIndex = bookingRows.length + 1;
+
+    while (true) {
+      const candidate = this.createBookingCode(candidateIndex);
+      const existing = (await tx
+        .select({ id: bookingsTable.id })
+        .from(bookingsTable)
+        .where(eq(bookingsTable.code, candidate))
+        .limit(1)) as Array<{ id: string }>;
+
+      if (!existing[0]) {
+        return candidate;
+      }
+
+      candidateIndex += 1;
+    }
+  }
+
+  private createBookingCode(index: number): string {
+    return `BG-${new Date().getUTCFullYear()}-AUTO-${String(index).padStart(3, '0')}`;
+  }
+
+  private createBookingId(): string {
+    return `book-${randomUUID().slice(0, 8)}`;
+  }
+
+  private createPaymentId(): string {
+    return `pay-${randomUUID().slice(0, 8)}`;
+  }
+
+  private createOnlinePaymentReference(code: string): string {
+    return `ONLINE-${code}`;
   }
 
   private isBlockingBookingForAvailability(

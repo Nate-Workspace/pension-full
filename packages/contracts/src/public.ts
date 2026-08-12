@@ -54,6 +54,31 @@ export const publicRoomAvailabilityResponseSchema = z.object({
 	bookedRanges: z.array(publicBookedRangeSchema),
 });
 
+export const publicBookingCheckoutSchema = z.object({
+	roomId: z.string().trim().min(1),
+	guestName: z.string().trim().min(1),
+	guestPhone: z.string().trim().min(1),
+	checkInDate: publicDateSchema,
+	checkOutDate: publicDateSchema,
+});
+
+export const publicBookingCheckoutResponseSchema = z.object({
+	code: z.string(),
+	roomId: z.string(),
+	roomName: z.string(),
+	roomNumber: z.string(),
+	guestName: z.string(),
+	checkInDate: publicDateSchema,
+	checkOutDate: publicDateSchema,
+	nights: z.number().int().positive(),
+	pricePerNight: z.number().int().nonnegative(),
+	totalAmount: z.number().int().nonnegative(),
+	paidAmount: z.number().int().nonnegative(),
+	paymentStatus: z.literal("paid"),
+	defaultCheckInTime: z.string(),
+	defaultCheckOutTime: z.string(),
+});
+
 export type PublicPensionResponse = z.infer<typeof publicPensionResponseSchema>;
 export type PublicRoomResponse = z.infer<typeof publicRoomResponseSchema>;
 export type PublicRoomsResponse = z.infer<typeof publicRoomsResponseSchema>;
@@ -63,6 +88,12 @@ export type PublicRoomAvailabilityQueryInput = z.infer<
 export type PublicBookedRange = z.infer<typeof publicBookedRangeSchema>;
 export type PublicRoomAvailabilityResponse = z.infer<
 	typeof publicRoomAvailabilityResponseSchema
+>;
+export type PublicBookingCheckoutInput = z.infer<
+	typeof publicBookingCheckoutSchema
+>;
+export type PublicBookingCheckoutResponse = z.infer<
+	typeof publicBookingCheckoutResponseSchema
 >;
 export type { SiteConfigResponse, SiteContentResponse } from "./site-content";
 export { siteConfigResponseSchema, siteContentResponseSchema };

@@ -12,6 +12,8 @@ export {
 } from "./cms";
 export {
 	publicBookedRangeSchema,
+	publicBookingCheckoutResponseSchema,
+	publicBookingCheckoutSchema,
 	publicPensionResponseSchema,
 	publicRoomAvailabilityQuerySchema,
 	publicRoomAvailabilityResponseSchema,
@@ -90,6 +92,8 @@ export type {
 } from "./cms";
 export type {
 	PublicBookedRange,
+	PublicBookingCheckoutInput,
+	PublicBookingCheckoutResponse,
 	PublicPensionResponse,
 	PublicRoomAvailabilityQueryInput,
 	PublicRoomAvailabilityResponse,
