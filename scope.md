@@ -301,13 +301,13 @@ All items below are **explicitly scheduled in implementation phases**.
 
 ### Phase 4 — Dedicated CMS (mobile-first, page-classified)
 
-- CMS shell: mobile bottom-nav + desktop sidebar
-- Per-page editors: Global, Home, Rooms, Gallery, About, Amenities, Attractions, Contact, FAQ
-- Global page: cancellation policy, terms, privacy, map embed, allow online bookings (**#7, #10**)
-- Contact page editor: phone, email, address display (**#5, #6**)
-- `CmsModule` full CRUD wired to all CMS pages
-- Live preview links per page
-- Seed script: sample CMS content for all pages (no lorem ipsum placeholders)
+- [x] Step 1 — CMS shell: mobile bottom-nav + desktop sidebar
+- [x] Step 2 — Per-page editor routes: Global, Home, Rooms, Gallery, About, Amenities, Attractions, Contact, FAQ
+- [x] Step 3 — Global editor: cancellation policy, terms, privacy, map embed, allow online bookings (**#7, #10**)
+- [x] Step 4 — Contact editor: phone, email, address display + page intro (**#5, #6**)
+- [ ] `CmsModule` full CRUD wired to all CMS pages
+- [ ] Live preview links per page
+- [ ] Seed script: sample CMS content for all pages (no lorem ipsum placeholders)
 
 ### Phase 5 — Management integration + polish + testing
 

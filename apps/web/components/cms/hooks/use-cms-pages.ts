@@ -3,8 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchCmsPages } from "@/components/cms/services/cms-service";
+import { CMS_PAGES_QUERY_KEY } from "@/components/cms/hooks/cms-query-keys";
 
-export const CMS_PAGES_QUERY_KEY = ["cms", "pages"] as const;
+export { CMS_PAGES_QUERY_KEY };
 
 export function useCmsPages() {
   return useQuery({

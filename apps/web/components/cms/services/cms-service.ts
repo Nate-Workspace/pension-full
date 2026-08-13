@@ -1,5 +1,13 @@
 import { apiFetch } from "@/lib/api-client";
-import type { CmsPageSummary, CmsPagesResponse } from "@repo/contracts";
+import { getCmsNavItem, type CmsNavSlug } from "@/lib/cms-navigation";
+import type {
+  CmsGlobalConfigResponse,
+  CmsGlobalUpdateInput,
+  CmsPageContentResponse,
+  CmsPageContentUpdateInput,
+  CmsPageSummary,
+  CmsPagesResponse,
+} from "@repo/contracts";
 
 export type { CmsPageSummary };
 
@@ -19,25 +27,134 @@ export async function fetchCmsPages(): Promise<CmsPagesResponse> {
   return (await response.json()) as CmsPagesResponse;
 }
 
-export function getCmsPreviewHref(slug: CmsPageSummary["slug"]): string {
-  switch (slug) {
-    case "home":
-      return "/";
-    case "rooms":
-      return "/contact";
-    case "gallery":
-      return "/gallery";
-    case "about":
-      return "/about";
-    case "amenities":
-      return "/amenities";
-    case "attractions":
-      return "/attractions";
-    case "contact":
-      return "/contact";
-    case "faq":
-      return "/faq";
-    default:
-      return "/";
+export async function fetchCmsGlobalConfig(): Promise<CmsGlobalConfigResponse> {
+  const response = await apiFetch("/cms/global", {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load global CMS config (${response.status}).`);
   }
+
+  return (await response.json()) as CmsGlobalConfigResponse;
+}
+
+export async function updateCmsGlobalConfig(
+  input: CmsGlobalUpdateInput,
+): Promise<CmsGlobalConfigResponse> {
+  const response = await apiFetch("/cms/global", {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to save global CMS config (${response.status}).`);
+  }
+
+  return (await response.json()) as CmsGlobalConfigResponse;
+}
+
+export async function fetchCmsPageContent(
+  slug: Exclude<CmsNavSlug, "global">,
+): Promise<CmsPageContentResponse> {
+  const response = await apiFetch(`/cms/pages/${slug}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load CMS page content (${response.status}).`);
+  }
+
+  return (await response.json()) as CmsPageContentResponse;
+}
+
+export async function updateCmsPageContent(
+  slug: Exclude<CmsNavSlug, "global">,
+  input: CmsPageContentUpdateInput,
+): Promise<CmsPageContentResponse> {
+  const response = await apiFetch(`/cms/pages/${slug}`, {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to save CMS page content (${response.status}).`);
+  }
+
+  return (await response.json()) as CmsPageContentResponse;
+}
+
+export function getCmsPreviewHref(slug: CmsNavSlug): string {
+  return getCmsNavItem(slug)?.previewHref ?? "/";
+}
+
+async function readErrorMessage(response: Response): Promise<string> {
+  try {
+    const payload = (await response.json()) as { message?: string | string[] };
+    if (Array.isArray(payload.message)) {
+      return payload.message.join(" ");
+    }
+    if (typeof payload.message === "string" && payload.message.trim()) {
+      return payload.message;
+    }
+  } catch {
+    // Fall through.
+  }
+
+  return `Request failed (${response.status}).`;
+}
+
+export async function updateCmsGlobalConfigWithErrors(
+  input: CmsGlobalUpdateInput,
+): Promise<CmsGlobalConfigResponse> {
+  const response = await apiFetch("/cms/global", {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return (await response.json()) as CmsGlobalConfigResponse;
+}
+
+export async function updateCmsPageContentWithErrors(
+  slug: Exclude<CmsNavSlug, "global">,
+  input: CmsPageContentUpdateInput,
+): Promise<CmsPageContentResponse> {
+  const response = await apiFetch(`/cms/pages/${slug}`, {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return (await response.json()) as CmsPageContentResponse;
 }
