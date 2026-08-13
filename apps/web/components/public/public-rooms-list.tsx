@@ -89,7 +89,7 @@ export function PublicRoomsList({
                     href={`/rooms/${room.id}`}
                     className="inline-flex rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
                   >
-                    View room
+                    Book online
                   </Link>
                   {pension.contactPhone ? (
                     <a

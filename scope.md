@@ -290,7 +290,7 @@ All items below are **explicitly scheduled in implementation phases**.
 - [x] `(public)` layout with footer Terms + Privacy links (**#10**)
 - [x] All public pages: home, rooms, detail, gallery, about, amenities, attractions, contact, faq
 - [x] `/terms` and `/privacy` pages (**#10**)
-- Room detail: availability calendar (**#9**), Book + Call buttons (**#11**)
+- [x] Room detail: availability calendar (**#9**), Book + Call buttons (**#11**)
 - Booking modal: transparent pricing breakdown (**#3**), check-in/out times (**#4**), cancellation policy (**#7**)
 - Payment summary → simulated Pay now → redirect to confirmation
 - Confirmation page: prominent booking code (**#1**), booking summary, honest email messaging (**#13**), link to Track my booking

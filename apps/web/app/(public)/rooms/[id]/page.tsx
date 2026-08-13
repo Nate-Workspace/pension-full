@@ -13,7 +13,7 @@ export default async function PublicRoomDetailsPage({
   params,
 }: PublicRoomDetailsPageProps) {
   const { id } = await params;
-  const { siteData, room } = await loadPublicRoomDetail(id);
+  const { siteData, room, initialAvailability } = await loadPublicRoomDetail(id);
 
   if (!room) {
     notFound();
@@ -24,6 +24,7 @@ export default async function PublicRoomDetailsPage({
       pension={siteData.pension}
       siteContent={siteData.siteContent}
       room={room}
+      initialAvailability={initialAvailability}
       isOffline={siteData.isOffline}
     />
   );
