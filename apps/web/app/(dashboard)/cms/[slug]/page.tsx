@@ -3,9 +3,17 @@
 import { notFound } from "next/navigation";
 import { use } from "react";
 
+import { CmsAboutEditor } from "@/components/cms/editors/cms-about-editor";
 import { CmsContactEditor } from "@/components/cms/editors/cms-contact-editor";
 import { CmsGlobalEditor } from "@/components/cms/editors/cms-global-editor";
-import { CmsPlaceholderEditor } from "@/components/cms/cms-placeholder-editor";
+import {
+  CmsAmenitiesEditor,
+  CmsAttractionsEditor,
+  CmsFaqEditor,
+  CmsGalleryEditor,
+  CmsHomeEditor,
+  CmsRoomsEditor,
+} from "@/components/cms/editors/cms-page-editors";
 import { isCmsNavSlug, type CmsNavSlug } from "@/lib/cms-navigation";
 
 type CmsSlugPageProps = {
@@ -16,16 +24,22 @@ function renderEditor(slug: CmsNavSlug) {
   switch (slug) {
     case "global":
       return <CmsGlobalEditor />;
+    case "home":
+      return <CmsHomeEditor />;
+    case "rooms":
+      return <CmsRoomsEditor />;
+    case "gallery":
+      return <CmsGalleryEditor />;
+    case "about":
+      return <CmsAboutEditor />;
+    case "amenities":
+      return <CmsAmenitiesEditor />;
+    case "attractions":
+      return <CmsAttractionsEditor />;
     case "contact":
       return <CmsContactEditor />;
-    case "home":
-    case "rooms":
-    case "gallery":
-    case "about":
-    case "amenities":
-    case "attractions":
     case "faq":
-      return <CmsPlaceholderEditor slug={slug} />;
+      return <CmsFaqEditor />;
   }
 }
 

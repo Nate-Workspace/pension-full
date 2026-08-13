@@ -21,12 +21,7 @@ type ContactFormState = {
   city: string;
 };
 
-function getSectionContent(
-  sections: Array<{ sectionKey: string; content: string }> | undefined,
-  key: string,
-): string {
-  return sections?.find((section) => section.sectionKey === key)?.content ?? "";
-}
+import { getSectionValue } from "@/lib/cms-sections";
 
 export function CmsContactEditor() {
   const pageQuery = useCmsPageContent("contact");
@@ -44,7 +39,7 @@ export function CmsContactEditor() {
     }
 
     return {
-      intro: getSectionContent(pageQuery.page.sections, "intro"),
+      intro: getSectionValue(pageQuery.page.sections, "intro"),
       contactPhone: globalQuery.config.contactPhone,
       contactEmail: globalQuery.config.contactEmail,
       address: globalQuery.config.address,

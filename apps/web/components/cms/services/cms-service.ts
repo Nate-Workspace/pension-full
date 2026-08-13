@@ -158,3 +158,75 @@ export async function updateCmsPageContentWithErrors(
 
   return (await response.json()) as CmsPageContentResponse;
 }
+
+type EntityRecord = { id: string; sortOrder: number };
+
+async function fetchEntityList<T extends EntityRecord>(path: string): Promise<T[]> {
+  const response = await apiFetch(path, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return (await response.json()) as T[];
+}
+
+async function mutateEntity<T>(
+  path: string,
+  method: "POST" | "PATCH" | "DELETE",
+  body?: unknown,
+): Promise<T> {
+  const response = await apiFetch(path, {
+    method,
+    headers: {
+      Accept: "application/json",
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  if (method === "DELETE") {
+    return (await response.json()) as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+export const cmsEntityApi = {
+  gallery: {
+    list: () => fetchEntityList("/cms/gallery"),
+    create: (input: unknown) => mutateEntity("/cms/gallery", "POST", input),
+    update: (id: string, input: unknown) =>
+      mutateEntity(`/cms/gallery/${id}`, "PATCH", input),
+    delete: (id: string) => mutateEntity(`/cms/gallery/${id}`, "DELETE"),
+  },
+  amenities: {
+    list: () => fetchEntityList("/cms/amenities"),
+    create: (input: unknown) => mutateEntity("/cms/amenities", "POST", input),
+    update: (id: string, input: unknown) =>
+      mutateEntity(`/cms/amenities/${id}`, "PATCH", input),
+    delete: (id: string) => mutateEntity(`/cms/amenities/${id}`, "DELETE"),
+  },
+  faqs: {
+    list: () => fetchEntityList("/cms/faqs"),
+    create: (input: unknown) => mutateEntity("/cms/faqs", "POST", input),
+    update: (id: string, input: unknown) =>
+      mutateEntity(`/cms/faqs/${id}`, "PATCH", input),
+    delete: (id: string) => mutateEntity(`/cms/faqs/${id}`, "DELETE"),
+  },
+  attractions: {
+    list: () => fetchEntityList("/cms/attractions"),
+    create: (input: unknown) => mutateEntity("/cms/attractions", "POST", input),
+    update: (id: string, input: unknown) =>
+      mutateEntity(`/cms/attractions/${id}`, "PATCH", input),
+    delete: (id: string) => mutateEntity(`/cms/attractions/${id}`, "DELETE"),
+  },
+} as const;

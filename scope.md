@@ -305,9 +305,9 @@ All items below are **explicitly scheduled in implementation phases**.
 - [x] Step 2 — Per-page editor routes: Global, Home, Rooms, Gallery, About, Amenities, Attractions, Contact, FAQ
 - [x] Step 3 — Global editor: cancellation policy, terms, privacy, map embed, allow online bookings (**#7, #10**)
 - [x] Step 4 — Contact editor: phone, email, address display + page intro (**#5, #6**)
-- [ ] `CmsModule` full CRUD wired to all CMS pages
-- [ ] Live preview links per page
-- [ ] Seed script: sample CMS content for all pages (no lorem ipsum placeholders)
+- [x] Step 5 — `CmsModule` full CRUD wired to all CMS pages (Home, Rooms, About, Gallery, Amenities, Attractions, FAQ)
+- [x] Step 6 — Live preview links per page
+- [x] Step 7 — Seed script: sample CMS content for all pages (no lorem ipsum placeholders)
 
 ### Phase 5 — Management integration + polish + testing
 
@@ -366,5 +366,5 @@ All items below are **explicitly scheduled in implementation phases**.
 - [x] Phase 1 — Foundation (backend + routing)
 - [x] Phase 2 — Booking engine + credibility rules
 - [x] Phase 3 — Public frontend + booking UX
-- [ ] Phase 4 — Dedicated CMS
+- [x] Phase 4 — Dedicated CMS
 - [ ] Phase 5 — Management integration + polish + testing

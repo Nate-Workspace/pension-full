@@ -95,6 +95,25 @@ export function CmsGlobalEditor() {
         description="Site-wide defaults, legal copy, booking rules, and map embed used across the public site."
       />
 
+      <div className="mb-4 flex flex-wrap gap-2">
+        <a
+          href="/terms"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+        >
+          Preview terms
+        </a>
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+        >
+          Preview privacy
+        </a>
+      </div>
+
       {saveMessage ? (
         <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
           {saveMessage}

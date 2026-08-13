@@ -1,7 +1,20 @@
 import { config as loadEnv } from 'dotenv';
 import { hash } from 'bcryptjs';
 import { eq } from 'drizzle-orm';
-import { db, bookings, payments, rooms, settings, users } from '@repo/db';
+import {
+  db,
+  bookings,
+  payments,
+  rooms,
+  settings,
+  siteAmenities,
+  siteAttractions,
+  siteConfig,
+  siteFaqs,
+  siteGalleryItems,
+  sitePageContent,
+  users,
+} from '@repo/db';
 
 const loadEnvConfig = loadEnv as (options: {
   path: string;
@@ -308,10 +321,10 @@ const seedPayments = [
 
 const seedSettings = {
   id: 'main',
-  pensionName: 'Hillside Guest House',
+  pensionName: 'Alem Guest House',
   ownerName: 'Guest House Owner',
   contactPhone: '+221 77 000 9988',
-  contactEmail: 'admin@hillsideguesthouse.org',
+  contactEmail: 'admin@alemguesthouse.org',
   address: 'Bole Brass',
   city: 'Addis Ababa',
   singleRoomPrice: 2200,
@@ -439,6 +452,339 @@ async function seedAppSettings() {
   await db.insert(settings).values(seedSettings);
 }
 
+const SITE_CONFIG_ID = 'main';
+
+const seedSiteConfig = {
+  id: SITE_CONFIG_ID,
+  pensionName: 'Alem Guest House',
+  tagline: 'Quiet comfort above the city',
+  heroImageUrl:
+    'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1600&q=80',
+  heroHeadline: 'Rest easy at Alem Guest House',
+  heroSubtext:
+    'A calm base in Bole with clear pricing, helpful hosts, and rooms ready for short or extended stays.',
+  aboutDescription:
+    'Alem Guest House opened to give travelers a straightforward place to stay in Addis Ababa—clean rooms, honest rates, and a team that answers the phone.\n\nWe keep operations simple: transparent nightly pricing, flexible phone bookings, and online checkout when you are ready to confirm instantly.',
+  cancellationPolicy:
+    'Free cancellation until 48 hours before check-in. Cancellations within 48 hours are charged for the first night. No-shows are charged in full.',
+  termsText:
+    'By booking with Alem Guest House you agree to respect quiet hours (10pm–7am), follow house safety guidelines, and provide accurate contact details.\n\nRates are quoted in ETB per room per night. Additional guests beyond room capacity must be approved in advance.',
+  privacyText:
+    'We use your contact details only to manage your reservation and communicate about your stay.\n\nWe do not sell guest information. Booking lookup requires your reference code plus the phone number or email used at checkout.',
+  mapEmbedUrl: '',
+  mapLat: '',
+  mapLng: '',
+  allowOnlineBookings: 1,
+  sameDayBookingCutoffTime: '18:00',
+  contactPhone: '+221 77 000 9988',
+  contactEmail: 'admin@Alemguesthouse.org',
+  address: 'Bole Brass',
+  city: 'Addis Ababa',
+} as const;
+
+const seedPageSections = [
+  {
+    pageSlug: 'home',
+    sectionKey: 'heroHeadline',
+    content: 'Rest easy at Alem Guest House',
+    sortOrder: 0,
+  },
+  {
+    pageSlug: 'home',
+    sectionKey: 'heroSubtext',
+    content:
+      'Browse rooms, compare rates, and book online—or call our front desk for personal help.',
+    sortOrder: 1,
+  },
+  {
+    pageSlug: 'home',
+    sectionKey: 'intro',
+    content:
+      'Every room shows live availability, clear nightly pricing, and the check-in details you need before you pay.',
+    sortOrder: 2,
+  },
+  {
+    pageSlug: 'rooms',
+    sectionKey: 'headline',
+    content: 'Rooms ready for your dates',
+    sortOrder: 0,
+  },
+  {
+    pageSlug: 'rooms',
+    sectionKey: 'intro',
+    content:
+      'Choose a room, review the calendar, and book online or call us if you prefer to confirm by phone.',
+    sortOrder: 1,
+  },
+  {
+    pageSlug: 'contact',
+    sectionKey: 'intro',
+    content:
+      'Questions about directions, availability, or phone bookings? Reach our team using the details below.',
+    sortOrder: 0,
+  },
+  {
+    pageSlug: 'about',
+    sectionKey: 'ownerBio',
+    content:
+      'We are on site most mornings and evenings. If you need an early check-in or airport pickup advice, call before you arrive—we are happy to help.',
+    sortOrder: 0,
+  },
+] as const;
+
+const seedGalleryItems = [
+  {
+    id: 'gallery-001',
+    imageUrl:
+      'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Double room with city view',
+    sortOrder: 0,
+  },
+  {
+    id: 'gallery-002',
+    imageUrl:
+      'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Morning light in the guest lounge',
+    sortOrder: 1,
+  },
+  {
+    id: 'gallery-003',
+    imageUrl:
+      'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Clean, simple single room',
+    sortOrder: 2,
+  },
+] as const;
+
+const seedAmenities = [
+  {
+    id: 'amenity-001',
+    name: 'Complimentary Wi‑Fi',
+    icon: 'WiFi',
+    description: 'Stable connection in rooms and common areas.',
+    sortOrder: 0,
+  },
+  {
+    id: 'amenity-002',
+    name: 'Breakfast available',
+    icon: '☕',
+    description: 'Simple breakfast on request—let us know the night before.',
+    sortOrder: 1,
+  },
+  {
+    id: 'amenity-003',
+    name: 'Daily housekeeping',
+    icon: '✓',
+    description: 'Fresh towels and room refresh on request.',
+    sortOrder: 2,
+  },
+  {
+    id: 'amenity-004',
+    name: 'Front desk support',
+    icon: '☎',
+    description: 'Phone bookings and local directions during reception hours.',
+    sortOrder: 3,
+  },
+] as const;
+
+const seedFaqs = [
+  {
+    id: 'faq-001',
+    question: 'What are check-in and check-out times?',
+    answer:
+      'Check-in from 2:00 PM and check-out by 11:00 AM. Early check-in depends on availability—call ahead.',
+    sortOrder: 0,
+  },
+  {
+    id: 'faq-002',
+    question: 'Can I book by phone instead of online?',
+    answer:
+      'Yes. Use the Call to book button on any room page or contact us directly. Online checkout confirms instantly.',
+    sortOrder: 1,
+  },
+  {
+    id: 'faq-003',
+    question: 'How do I track my booking?',
+    answer:
+      'Use Track my booking with your reference code and the phone number or email from your reservation.',
+    sortOrder: 2,
+  },
+] as const;
+
+const seedAttractions = [
+  {
+    id: 'attraction-001',
+    name: 'Bole Medhanealem',
+    description: 'Shopping and dining hub a short drive from the guesthouse.',
+    distance: '2.5 km',
+    imageUrl:
+      'https://images.unsplash.com/photo-1526778548025-fa2faacd725f?auto=format&fit=crop&w=1200&q=80',
+    sortOrder: 0,
+  },
+  {
+    id: 'attraction-002',
+    name: 'Addis Ababa Bole International Airport',
+    description: 'Convenient for early departures—ask us about transfer timing.',
+    distance: '4 km',
+    imageUrl:
+      'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=80',
+    sortOrder: 1,
+  },
+] as const;
+
+async function seedSiteConfiguration() {
+  const existingRows = (await db
+    .select({ id: siteConfig.id })
+    .from(siteConfig)
+    .where(eq(siteConfig.id, SITE_CONFIG_ID))
+    .limit(1)) as Array<{ id: string }>;
+
+  if (existingRows[0]) {
+    await db
+      .update(siteConfig)
+      .set({
+        ...seedSiteConfig,
+        updatedAt: new Date(),
+      })
+      .where(eq(siteConfig.id, SITE_CONFIG_ID));
+
+    return;
+  }
+
+  await db.insert(siteConfig).values(seedSiteConfig);
+}
+
+async function seedSitePageSections() {
+  for (const section of seedPageSections) {
+    await db
+      .insert(sitePageContent)
+      .values(section)
+      .onConflictDoUpdate({
+        target: [sitePageContent.pageSlug, sitePageContent.sectionKey],
+        set: {
+          content: section.content,
+          sortOrder: section.sortOrder,
+        },
+      });
+  }
+}
+
+async function seedGalleryItem(item: (typeof seedGalleryItems)[number]) {
+  const existingRows = (await db
+    .select({ id: siteGalleryItems.id })
+    .from(siteGalleryItems)
+    .where(eq(siteGalleryItems.id, item.id))
+    .limit(1)) as Array<{ id: string }>;
+
+  if (existingRows[0]) {
+    await db
+      .update(siteGalleryItems)
+      .set({
+        imageUrl: item.imageUrl,
+        caption: item.caption,
+        sortOrder: item.sortOrder,
+      })
+      .where(eq(siteGalleryItems.id, item.id));
+
+    return;
+  }
+
+  await db.insert(siteGalleryItems).values(item);
+}
+
+async function seedAmenityItem(item: (typeof seedAmenities)[number]) {
+  const existingRows = (await db
+    .select({ id: siteAmenities.id })
+    .from(siteAmenities)
+    .where(eq(siteAmenities.id, item.id))
+    .limit(1)) as Array<{ id: string }>;
+
+  if (existingRows[0]) {
+    await db
+      .update(siteAmenities)
+      .set({
+        name: item.name,
+        icon: item.icon,
+        description: item.description,
+        sortOrder: item.sortOrder,
+      })
+      .where(eq(siteAmenities.id, item.id));
+
+    return;
+  }
+
+  await db.insert(siteAmenities).values(item);
+}
+
+async function seedFaqItem(item: (typeof seedFaqs)[number]) {
+  const existingRows = (await db
+    .select({ id: siteFaqs.id })
+    .from(siteFaqs)
+    .where(eq(siteFaqs.id, item.id))
+    .limit(1)) as Array<{ id: string }>;
+
+  if (existingRows[0]) {
+    await db
+      .update(siteFaqs)
+      .set({
+        question: item.question,
+        answer: item.answer,
+        sortOrder: item.sortOrder,
+      })
+      .where(eq(siteFaqs.id, item.id));
+
+    return;
+  }
+
+  await db.insert(siteFaqs).values(item);
+}
+
+async function seedAttractionItem(item: (typeof seedAttractions)[number]) {
+  const existingRows = (await db
+    .select({ id: siteAttractions.id })
+    .from(siteAttractions)
+    .where(eq(siteAttractions.id, item.id))
+    .limit(1)) as Array<{ id: string }>;
+
+  if (existingRows[0]) {
+    await db
+      .update(siteAttractions)
+      .set({
+        name: item.name,
+        description: item.description,
+        distance: item.distance,
+        imageUrl: item.imageUrl,
+        sortOrder: item.sortOrder,
+      })
+      .where(eq(siteAttractions.id, item.id));
+
+    return;
+  }
+
+  await db.insert(siteAttractions).values(item);
+}
+
+async function seedCmsContent() {
+  await seedSiteConfiguration();
+  await seedSitePageSections();
+
+  for (const item of seedGalleryItems) {
+    await seedGalleryItem(item);
+  }
+
+  for (const item of seedAmenities) {
+    await seedAmenityItem(item);
+  }
+
+  for (const item of seedFaqs) {
+    await seedFaqItem(item);
+  }
+
+  for (const item of seedAttractions) {
+    await seedAttractionItem(item);
+  }
+}
+
 async function main() {
   for (const user of seedUsers) {
     await seedUser(user.email, user.password, user.role);
@@ -457,6 +803,7 @@ async function main() {
   }
 
   await seedAppSettings();
+  await seedCmsContent();
 }
 
 main()
