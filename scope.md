@@ -291,9 +291,9 @@ All items below are **explicitly scheduled in implementation phases**.
 - [x] All public pages: home, rooms, detail, gallery, about, amenities, attractions, contact, faq
 - [x] `/terms` and `/privacy` pages (**#10**)
 - [x] Room detail: availability calendar (**#9**), Book + Call buttons (**#11**)
-- Booking modal: transparent pricing breakdown (**#3**), check-in/out times (**#4**), cancellation policy (**#7**)
-- Payment summary → simulated Pay now → redirect to confirmation
-- Confirmation page: prominent booking code (**#1**), booking summary, honest email messaging (**#13**), link to Track my booking
+- [x] Booking modal: transparent pricing breakdown (**#3**), check-in/out times (**#4**), cancellation policy (**#7**)
+- [x] Payment summary → simulated Pay now → redirect to confirmation
+- [x] Confirmation page: prominent booking code (**#1**), booking summary, honest email messaging (**#13**), link to Track my booking
 - Track my booking page (**#2**)
 - Real contact info + Google Maps on Contact page (**#5, #6**)
 - Public pages consume `GET /public/site-content` + `GET /public/pension`

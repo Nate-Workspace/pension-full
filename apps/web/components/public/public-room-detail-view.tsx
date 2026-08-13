@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
 import type {
   PublicPensionResponse,
@@ -20,6 +20,7 @@ import {
 } from "@/lib/public-calendar";
 
 import { usePublicRoomBookingCalendar } from "./hooks/use-public-room-booking-calendar";
+import { PublicBookingModal, type PublicBookingDraft } from "./public-booking-modal";
 import { PublicRoomAvailabilityCalendar } from "./public-room-availability-calendar";
 import { PublicOfflineBanner, PublicPageHero } from "./public-page-sections";
 
@@ -29,11 +30,6 @@ type PublicRoomDetailViewProps = {
   room: PublicRoomResponse;
   initialAvailability: PublicRoomAvailabilityResponse | null;
   isOffline?: boolean;
-  onBookOnline?: (input: {
-    checkInDate: string;
-    checkOutDate: string;
-    nights: number;
-  }) => void;
 };
 
 function getRoomStatusLabel(status: PublicRoomResponse["status"]): string {
@@ -139,9 +135,9 @@ export function PublicRoomDetailView({
   room,
   initialAvailability,
   isOffline = false,
-  onBookOnline,
 }: PublicRoomDetailViewProps) {
   const allowOnlineBookings = siteContent.config.allowOnlineBookings;
+  const [bookingDraft, setBookingDraft] = useState<PublicBookingDraft | null>(null);
   const calendar = usePublicRoomBookingCalendar({
     roomId: room.id,
     initialAvailability,
@@ -156,12 +152,11 @@ export function PublicRoomDetailView({
       return;
     }
 
-    onBookOnline?.({
+    setBookingDraft({
       checkInDate: calendar.selectedCheckIn,
       checkOutDate: calendar.selectedCheckOut,
-      nights: countNights(calendar.selectedCheckIn, calendar.selectedCheckOut),
     });
-  }, [calendar, onBookOnline]);
+  }, [calendar]);
 
   return (
     <div className="pb-24 lg:pb-0">
@@ -285,6 +280,17 @@ export function PublicRoomDetailView({
           </p>
         )}
       </div>
+
+      {bookingDraft ? (
+        <PublicBookingModal
+          open
+          onClose={() => setBookingDraft(null)}
+          room={room}
+          pension={pension}
+          siteContent={siteContent}
+          booking={bookingDraft}
+        />
+      ) : null}
     </div>
   );
 }
