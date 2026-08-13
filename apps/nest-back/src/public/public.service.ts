@@ -267,90 +267,80 @@ export class PublicService {
     await this.assertPublicBookingDates(input.checkInDate, input.checkOutDate);
 
     const operational = await this.settingsService.getOperationalPreferences();
+    const room = await this.requirePublicBookableRoom(input.roomId);
 
-    const result = await db.transaction(async (tx) => {
-      const roomRows = (await tx
-        .select()
-        .from(roomsTable)
-        .where(eq(roomsTable.id, input.roomId))
-        .for('update')
-        .limit(1)) as RoomRecord[];
-      const room = roomRows[0];
+    await this.ensureNoOverlapInTransaction(db, {
+      roomId: input.roomId,
+      checkInDate: input.checkInDate,
+      checkOutDate: input.checkOutDate,
+    });
 
-      assertPublicBookableRoom(room);
-      await this.ensureNoOverlapInTransaction(tx, {
-        roomId: input.roomId,
+    const nights = this.calculateNights(input.checkInDate, input.checkOutDate);
+    const totalAmount = room.pricePerNight * nights;
+    const bookingId = this.createBookingId();
+    const code = await this.generateBookingCode(db);
+
+    const insertedBookings = (await db
+      .insert(bookingsTable)
+      .values({
+        id: bookingId,
+        code,
+        roomId: room.id,
+        guestName: input.guestName,
+        guestPhone: input.guestPhone ?? null,
+        guestEmail: input.guestEmail ?? null,
+        guestIdNumber: null,
+        handledBy: null,
+        isCanceled: false,
+        checkedOutAt: null,
         checkInDate: input.checkInDate,
         checkOutDate: input.checkOutDate,
-      });
-
-      const nights = this.calculateNights(input.checkInDate, input.checkOutDate);
-      const totalAmount = room.pricePerNight * nights;
-      const bookingId = this.createBookingId();
-      const code = await this.generateBookingCode(tx);
-
-      const insertedBookings = (await tx
-        .insert(bookingsTable)
-        .values({
-          id: bookingId,
-          code,
-          roomId: room.id,
-          guestName: input.guestName,
-          guestPhone: input.guestPhone ?? null,
-          guestEmail: input.guestEmail ?? null,
-          guestIdNumber: null,
-          handledBy: null,
-          isCanceled: false,
-          checkedOutAt: null,
-          checkInDate: input.checkInDate,
-          checkOutDate: input.checkOutDate,
-          paidAmount: totalAmount,
-          source: 'website',
-        })
-        .returning()) as BookingRecord[];
-
-      const booking = insertedBookings[0];
-
-      if (!booking) {
-        throw new BadRequestException('Failed to create booking.');
-      }
-
-      const paymentReference = this.createOnlinePaymentReference(code);
-      const insertedPayments = await tx
-        .insert(paymentsTable)
-        .values({
-          id: this.createPaymentId(),
-          bookingId: booking.id,
-          roomId: room.id,
-          amount: totalAmount,
-          method: 'online',
-          status: 'paid',
-          paidAt: new Date(),
-          reference: paymentReference,
-        })
-        .returning();
-
-      if (!insertedPayments[0]) {
-        throw new BadRequestException('Failed to record payment.');
-      }
-
-      return {
-        code: booking.code,
-        roomId: room.id,
-        roomName: room.name,
-        roomNumber: room.number,
-        guestName: booking.guestName,
-        checkInDate: booking.checkInDate,
-        checkOutDate: booking.checkOutDate,
-        nights,
-        pricePerNight: room.pricePerNight,
-        totalAmount,
         paidAmount: totalAmount,
-        paymentStatus: 'paid' as const,
-        defaultCheckInTime: operational.defaultCheckInTime,
-        defaultCheckOutTime: operational.defaultCheckOutTime,
-      };
-    });
+        source: 'website',
+      })
+      .returning()) as BookingRecord[];
+
+    const booking = insertedBookings[0];
+
+    if (!booking) {
+      throw new BadRequestException('Failed to create booking.');
+    }
+
+    const paymentReference = this.createOnlinePaymentReference(code);
+    const insertedPayments = await db
+      .insert(paymentsTable)
+      .values({
+        id: this.createPaymentId(),
+        bookingId: booking.id,
+        roomId: room.id,
+        amount: totalAmount,
+        method: 'online',
+        status: 'paid',
+        paidAt: new Date(),
+        reference: paymentReference,
+      })
+      .returning();
+
+    if (!insertedPayments[0]) {
+      throw new BadRequestException('Failed to record payment.');
+    }
+
+    const result = {
+      code: booking.code,
+      roomId: room.id,
+      roomName: room.name,
+      roomNumber: room.number,
+      guestName: booking.guestName,
+      checkInDate: booking.checkInDate,
+      checkOutDate: booking.checkOutDate,
+      nights,
+      pricePerNight: room.pricePerNight,
+      totalAmount,
+      paidAmount: totalAmount,
+      paymentStatus: 'paid' as const,
+      defaultCheckInTime: operational.defaultCheckInTime,
+      defaultCheckOutTime: operational.defaultCheckOutTime,
+    };
 
     return publicBookingCheckoutResponseSchema.parse(result);
   }

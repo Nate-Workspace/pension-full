@@ -294,10 +294,10 @@ All items below are **explicitly scheduled in implementation phases**.
 - [x] Booking modal: transparent pricing breakdown (**#3**), check-in/out times (**#4**), cancellation policy (**#7**)
 - [x] Payment summary → simulated Pay now → redirect to confirmation
 - [x] Confirmation page: prominent booking code (**#1**), booking summary, honest email messaging (**#13**), link to Track my booking
-- Track my booking page (**#2**)
-- Real contact info + Google Maps on Contact page (**#5, #6**)
-- Public pages consume `GET /public/site-content` + `GET /public/pension`
-- Animations (`framer-motion`), mobile-first nav, sticky Book CTA
+- [x] Track my booking page (**#2**)
+- [x] Real contact info + Google Maps on Contact page (**#5, #6**)
+- [x] Public pages consume `GET /public/site-content` + `GET /public/pension`
+- [x] Animations (`framer-motion`), mobile-first nav, sticky Book CTA
 
 ### Phase 4 — Dedicated CMS (mobile-first, page-classified)
 
@@ -365,6 +365,6 @@ All items below are **explicitly scheduled in implementation phases**.
 
 - [x] Phase 1 — Foundation (backend + routing)
 - [x] Phase 2 — Booking engine + credibility rules
-- [ ] Phase 3 — Public frontend + booking UX
+- [x] Phase 3 — Public frontend + booking UX
 - [ ] Phase 4 — Dedicated CMS
 - [ ] Phase 5 — Management integration + polish + testing

@@ -1,6 +1,7 @@
 import type { PublicPensionResponse, SiteContentResponse } from "@repo/contracts";
 
 import { formatPhoneHref, getSectionContent } from "@/lib/public-content";
+import { buildMapEmbedUrl } from "@/lib/public-map";
 
 import {
   PublicOfflineBanner,
@@ -27,7 +28,8 @@ export function PublicContact({
   const address = config.address.trim() || pension.address;
   const city = config.city.trim() || pension.city;
   const locationLabel = [address, city].filter(Boolean).join(", ");
-  const mapEmbedUrl = config.mapEmbedUrl.trim();
+  const mapEmbedUrl = buildMapEmbedUrl(config.mapEmbedUrl, address, city);
+  const hasContactDetails = Boolean(contactPhone || contactEmail || locationLabel);
 
   return (
     <div>
@@ -105,8 +107,9 @@ export function PublicContact({
               />
             ) : (
               <div className="flex min-h-[24rem] items-center justify-center bg-slate-50 p-8 text-center text-sm text-slate-600">
-                Map directions will appear here once the Google Maps embed is configured
-                in the website CMS.
+                {hasContactDetails
+                  ? "Map preview unavailable — use the address above for directions."
+                  : "Contact details and map will appear here once they are configured in the website CMS."}
               </div>
             )}
           </div>

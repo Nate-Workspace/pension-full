@@ -1,6 +1,7 @@
 import type {
   PublicBookingCheckoutInput,
   PublicBookingCheckoutResponse,
+  PublicBookingLookupResponse,
 } from "@repo/contracts";
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "/api").replace(/\/$/, "");
@@ -10,7 +11,7 @@ function buildApiUrl(path: string): string {
   return `${API_BASE_URL}${normalizedPath}`;
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
+async function readErrorMessage(response: Response, fallback: string): Promise<string> {
   try {
     const payload = (await response.json()) as { message?: string | string[] };
     if (Array.isArray(payload.message)) {
@@ -20,10 +21,10 @@ async function readErrorMessage(response: Response): Promise<string> {
       return payload.message;
     }
   } catch {
-    // Fall through to generic message.
+    // Fall through.
   }
 
-  return `Booking request failed (${response.status}).`;
+  return fallback;
 }
 
 export async function checkoutPublicBooking(
@@ -39,8 +40,39 @@ export async function checkoutPublicBooking(
   });
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    throw new Error(
+      await readErrorMessage(response, `Booking request failed (${response.status}).`),
+    );
   }
 
   return (await response.json()) as PublicBookingCheckoutResponse;
+}
+
+export async function lookupPublicBooking(
+  code: string,
+  contact: string,
+): Promise<PublicBookingLookupResponse> {
+  const params = new URLSearchParams({
+    code: code.trim(),
+    contact: contact.trim(),
+  });
+  const response = await fetch(
+    buildApiUrl(`/public/bookings/lookup?${params.toString()}`),
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      await readErrorMessage(
+        response,
+        response.status === 404
+          ? "No booking matched that reference and contact details."
+          : `Lookup failed (${response.status}).`,
+      ),
+    );
+  }
+
+  return (await response.json()) as PublicBookingLookupResponse;
 }

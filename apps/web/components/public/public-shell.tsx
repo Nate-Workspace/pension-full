@@ -8,6 +8,9 @@ import type { PublicLayoutData } from "@/lib/public-home-data";
 import { formatPhoneHref } from "@/lib/public-content";
 import { publicNavigation } from "@/lib/public-navigation";
 
+import { PublicMobileNav } from "./public-mobile-nav";
+import { PublicMotionSection } from "./public-motion";
+
 type PublicShellProps = PublicLayoutData & {
   children: React.ReactNode;
 };
@@ -130,7 +133,11 @@ export function PublicShell({
         </nav>
       </header>
 
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 pb-24 lg:pb-0">
+        <PublicMotionSection>{children}</PublicMotionSection>
+      </main>
+
+      <PublicMobileNav />
 
       <footer className="border-t border-slate-200 bg-slate-950 text-slate-300">
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.4fr_1fr]">

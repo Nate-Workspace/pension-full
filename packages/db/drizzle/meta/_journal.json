@@ -43,6 +43,13 @@
       "when": 1776634200000,
       "tag": "0007_booking_guest_email",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776635000000,
+      "tag": "0008_site_config_cutoff",
+      "breakpoints": true
     }
   ]
 }
