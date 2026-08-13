@@ -240,7 +240,7 @@ export function useRoomsManagement() {
     closeDrawer,
     handleStatusChange,
     handleSaveRoom,
-    navigateToRoom: (roomId: string) => router.push(`/rooms/${roomId}`),
+    navigateToRoom: (roomId: string) => router.push(`/dashboard/rooms/${roomId}`),
   } satisfies {
     isAdmin: boolean;
     canUpdateStatus: boolean;

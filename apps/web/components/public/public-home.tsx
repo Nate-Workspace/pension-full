@@ -6,31 +6,20 @@ import type {
   SiteContentResponse,
 } from "@repo/contracts";
 
+import {
+  formatPhoneHref,
+  formatPublicPrice,
+  getSectionContent,
+} from "@/lib/public-content";
+
+import { PublicOfflineBanner } from "./public-page-sections";
+
 type PublicHomeProps = {
   pension: PublicPensionResponse;
   siteContent: SiteContentResponse;
   rooms: PublicRoomResponse[];
   isOffline?: boolean;
 };
-
-function getSectionContent(
-  siteContent: SiteContentResponse,
-  pageSlug: string,
-  sectionKey: string,
-): string {
-  return (
-    siteContent.pages[pageSlug]?.find((section) => section.sectionKey === sectionKey)
-      ?.content ?? ""
-  ).trim();
-}
-
-function formatPrice(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "ETB",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
 
 export function PublicHome({
   pension,
@@ -56,12 +45,7 @@ export function PublicHome({
 
   return (
     <div>
-      {isOffline && (
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:px-6">
-          Live guesthouse content is temporarily unavailable. Showing a basic
-          preview while the API reconnects.
-        </div>
-      )}
+      {isOffline ? <PublicOfflineBanner /> : null}
 
       <section className="relative overflow-hidden bg-slate-950 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.25),_transparent_45%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.18),_transparent_40%)]" />
@@ -83,7 +67,7 @@ export function PublicHome({
               </Link>
               {pension.contactPhone ? (
                 <a
-                  href={`tel:${pension.contactPhone.replace(/\s+/g, "")}`}
+                  href={formatPhoneHref(pension.contactPhone)}
                   className="inline-flex rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
                 >
                   Call to book
@@ -151,24 +135,15 @@ export function PublicHome({
                   Sleeps {room.capacity} · Floor {room.floor}
                 </p>
                 <p className="mt-4 text-2xl font-semibold text-slate-900">
-                  {formatPrice(room.pricePerNight)}
+                  {formatPublicPrice(room.pricePerNight)}
                   <span className="text-sm font-normal text-slate-500"> / night</span>
                 </p>
-                {pension.contactPhone ? (
-                  <a
-                    href={`tel:${pension.contactPhone.replace(/\s+/g, "")}`}
-                    className="mt-6 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
-                  >
-                    Call to book this room
-                  </a>
-                ) : (
-                  <Link
-                    href="/contact"
-                    className="mt-6 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
-                  >
-                    Contact us to book
-                  </Link>
-                )}
+                <Link
+                  href={`/rooms/${room.id}`}
+                  className="mt-6 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                >
+                  View room details
+                </Link>
               </article>
             ))}
           </div>

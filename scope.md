@@ -287,9 +287,9 @@ All items below are **explicitly scheduled in implementation phases**.
 
 ### Phase 3 — Public frontend + booking UX
 
-- `(public)` layout with footer Terms + Privacy links (**#10**)
-- All public pages: home, rooms, detail, gallery, about, amenities, attractions, contact, faq
-- `/terms` and `/privacy` pages (**#10**)
+- [x] `(public)` layout with footer Terms + Privacy links (**#10**)
+- [x] All public pages: home, rooms, detail, gallery, about, amenities, attractions, contact, faq
+- [x] `/terms` and `/privacy` pages (**#10**)
 - Room detail: availability calendar (**#9**), Book + Call buttons (**#11**)
 - Booking modal: transparent pricing breakdown (**#3**), check-in/out times (**#4**), cancellation policy (**#7**)
 - Payment summary → simulated Pay now → redirect to confirmation

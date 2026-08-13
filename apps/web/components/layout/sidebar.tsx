@@ -24,7 +24,7 @@ function isActive(pathname: string, href: string): boolean {
 
 const navIcons: Record<string, ReactNode> = {
   "/dashboard": <IconLayoutDashboard size={18} stroke={1.8} />,
-  "/rooms": <IconBed size={18} stroke={1.8} />,
+  "/dashboard/rooms": <IconBed size={18} stroke={1.8} />,
   "/bookings": <IconCalendarEvent size={18} stroke={1.8} />,
   "/payments": <IconCreditCard size={18} stroke={1.8} />,
   "/reports": <IconChartBar size={18} stroke={1.8} />,

@@ -51,7 +51,12 @@ function createFallbackPension(): PublicPensionResponse {
 function createFallbackSiteContent(): SiteContentResponse {
   return {
     config: { ...EMPTY_SITE_CONFIG },
-    pages: {},
+    pages: {
+      home: [],
+      rooms: [],
+      about: [],
+      contact: [],
+    },
     gallery: [],
     amenities: [],
     faqs: [],
@@ -86,7 +91,38 @@ export async function loadPublicHomeData(): Promise<PublicHomeData> {
   };
 }
 
+export type PublicLayoutData = {
+  pensionName: string;
+  tagline: string;
+  contactPhone: string;
+  contactEmail: string;
+  address: string;
+  city: string;
+};
+
+export async function loadPublicLayoutData(): Promise<PublicLayoutData> {
+  const [pension, siteContent] = await Promise.all([
+    fetchPublicJsonSafe<PublicPensionResponse>("/public/pension"),
+    fetchPublicJsonSafe<SiteContentResponse>("/public/site-content"),
+  ]);
+
+  const resolvedPension = pension ?? createFallbackPension();
+  const resolvedConfig = siteContent?.config ?? EMPTY_SITE_CONFIG;
+
+  return {
+    pensionName:
+      resolvedConfig.pensionName.trim() || resolvedPension.pensionName,
+    tagline: resolvedConfig.tagline.trim() || resolvedPension.tagline,
+    contactPhone:
+      resolvedConfig.contactPhone.trim() || resolvedPension.contactPhone,
+    contactEmail:
+      resolvedConfig.contactEmail.trim() || resolvedPension.contactEmail,
+    address: resolvedConfig.address.trim() || resolvedPension.address,
+    city: resolvedConfig.city.trim() || resolvedPension.city,
+  };
+}
+
 export async function loadPublicPensionName(): Promise<string> {
-  const pension = await fetchPublicJsonSafe<PublicPensionResponse>("/public/pension");
-  return pension?.pensionName || createFallbackPension().pensionName;
+  const layout = await loadPublicLayoutData();
+  return layout.pensionName;
 }

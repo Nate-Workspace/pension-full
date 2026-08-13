@@ -11,6 +11,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   "/attractions",
   "/contact",
   "/faq",
+  "/rooms",
   "/terms",
   "/privacy",
   "/booking/track",
@@ -25,7 +26,6 @@ const PROTECTED_PREFIXES = [
   "/payments",
   "/reports",
   "/settings",
-  "/rooms",
 ];
 
 export function isPublicPath(pathname: string): boolean {
